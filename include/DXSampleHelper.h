@@ -36,7 +36,7 @@ private:
 
 #define SAFE_RELEASE(p) if (p) (p)->Release()
 
-inline void ThrowIfFailed(HRESULT hr)
+inline void ThrowIfFailed(HRESULT hr) // HRESULT -> subname for long type
 {
     if (FAILED(hr))
     {

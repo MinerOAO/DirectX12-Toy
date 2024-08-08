@@ -40,24 +40,19 @@ std::wstring DXSample::GetAssetFullPath(LPCWSTR assetName)
 // Helper function for acquiring the first available hardware adapter that supports Direct3D 12.
 // If no such adapter can be found, *ppAdapter will be set to nullptr.
 _Use_decl_annotations_
-void DXSample::GetHardwareAdapter(
-    IDXGIFactory1* pFactory,
-    IDXGIAdapter1** ppAdapter,
-    bool requestHighPerformanceAdapter)
+void DXSample::GetHardwareAdapter(IDXGIFactory1* pFactory, IDXGIAdapter1** ppAdapter, DXGI_GPU_PREFERENCE GPUPrefrence)
 {
     *ppAdapter = nullptr;
 
     ComPtr<IDXGIAdapter1> adapter;
 
-    ComPtr<IDXGIFactory6> factory6;
+    ComPtr<IDXGIFactory6> factory6; // Introduce EnumAdapterByGpuPreference function. If not supported, fallback to IDXGIFactory1* pFactory
     if (SUCCEEDED(pFactory->QueryInterface(IID_PPV_ARGS(&factory6))))
     {
         for (
             UINT adapterIndex = 0;
             SUCCEEDED(factory6->EnumAdapterByGpuPreference(
-                adapterIndex,
-                requestHighPerformanceAdapter == true ? DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE : DXGI_GPU_PREFERENCE_UNSPECIFIED,
-                IID_PPV_ARGS(&adapter)));
+                adapterIndex, GPUPrefrence, IID_PPV_ARGS(&adapter)));
             ++adapterIndex)
         {
             DXGI_ADAPTER_DESC1 desc;

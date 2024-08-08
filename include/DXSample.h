@@ -14,7 +14,8 @@
 #include "DXSampleHelper.h"
 #include "Win32Application.h"
 
-class DXSample
+//Provide info about window and some functions
+class DXSample 
 {
 public:
     DXSample(UINT width, UINT height, std::wstring name);
@@ -39,10 +40,7 @@ public:
 protected:
     std::wstring GetAssetFullPath(LPCWSTR assetName);
 
-    void GetHardwareAdapter(
-        _In_ IDXGIFactory1* pFactory,
-        _Outptr_result_maybenull_ IDXGIAdapter1** ppAdapter,
-        bool requestHighPerformanceAdapter = false);
+    void GetHardwareAdapter(_In_ IDXGIFactory1* pFactory, _Outptr_result_maybenull_ IDXGIAdapter1** ppAdapter, DXGI_GPU_PREFERENCE GPUPrefrence);
 
     void SetCustomWindowText(LPCWSTR text);
 

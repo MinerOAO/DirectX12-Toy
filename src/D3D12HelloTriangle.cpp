@@ -48,9 +48,9 @@ void D3D12HelloTriangle::LoadPipeline()
 #endif
 
     ComPtr<IDXGIFactory4> factory;
-    ThrowIfFailed(CreateDXGIFactory2(dxgiFactoryFlags, IID_PPV_ARGS(&factory)));
+    ThrowIfFailed(CreateDXGIFactory2(dxgiFactoryFlags, IID_PPV_ARGS(&factory))); //pointer to a pointer
 
-    if (m_useWarpDevice)
+    if (m_useWarpDevice) // Use Warp, a software adapter
     {
         ComPtr<IDXGIAdapter> warpAdapter;
         ThrowIfFailed(factory->EnumWarpAdapter(IID_PPV_ARGS(&warpAdapter)));
@@ -64,7 +64,8 @@ void D3D12HelloTriangle::LoadPipeline()
     else
     {
         ComPtr<IDXGIAdapter1> hardwareAdapter;
-        GetHardwareAdapter(factory.Get(), &hardwareAdapter);
+
+        GetHardwareAdapter(factory.Get(), &hardwareAdapter, DXGI_GPU_PREFERENCE_HIGH_PERFORMANCE);
 
         ThrowIfFailed(D3D12CreateDevice(
             hardwareAdapter.Get(),
@@ -92,7 +93,7 @@ void D3D12HelloTriangle::LoadPipeline()
 
     ComPtr<IDXGISwapChain1> swapChain;
     ThrowIfFailed(factory->CreateSwapChainForHwnd(
-        m_commandQueue.Get(),        // Swap chain needs the queue so that it can force a flush on it.
+        m_commandQueue.Get(),        // Swap chain needs the queue so that it can force a flush on it when needed.
         Win32Application::GetHwnd(),
         &swapChainDesc,
         nullptr,
