@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include "Tools/GameTimer.h"
 #include "DXSampleHelper.h"
 #include "Win32Application.h"
 
@@ -23,6 +24,7 @@ public:
 
     virtual void OnInit() = 0;
     virtual void OnUpdate() = 0;
+    virtual void OnResize() {};
     virtual void OnRender() = 0;
     virtual void OnDestroy() = 0;
 
@@ -31,8 +33,8 @@ public:
     virtual void OnKeyUp(UINT8 /*key*/)     {}
 
     // Accessors.
-    UINT GetWidth() const           { return m_width; }
-    UINT GetHeight() const          { return m_height; }
+    UINT GetWidth() const           { return mWidth; }
+    UINT GetHeight() const          { return mHeight; }
     const WCHAR* GetTitle() const   { return m_title.c_str(); }
 
     void ParseCommandLineArgs(_In_reads_(argc) WCHAR* argv[], int argc);
@@ -44,9 +46,10 @@ protected:
 
     void SetCustomWindowText(LPCWSTR text);
 
+    void CalculateFrameStats();
     // Viewport dimensions.
-    UINT m_width;
-    UINT m_height;
+    UINT mWidth;
+    UINT mHeight;
     float m_aspectRatio;
 
     // Adapter info.
@@ -58,4 +61,7 @@ private:
 
     // Window title.
     std::wstring m_title;
+
+    //Timer
+    GameTimer mTimer;
 };

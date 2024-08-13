@@ -64,6 +64,9 @@ int Win32Application::Run(DXSample* pSample, HINSTANCE hInstance, int nCmdShow)
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
+        else
+        {
+        }
     }
 
     pSample->OnDestroy();
@@ -86,7 +89,10 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND hWnd, UINT message, WPARAM wP
             SetWindowLongPtr(hWnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(pCreateStruct->lpCreateParams));
         }
         return 0;
-
+    case WM_EXITSIZEMOVE:
+        //Resize Event
+        pSample->OnResize();
+        return 0;
     case WM_KEYDOWN:
         if (pSample)
         {
@@ -113,7 +119,5 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND hWnd, UINT message, WPARAM wP
         PostQuitMessage(0);
         return 0;
     }
-
-    // Handle any messages the switch statement didn't.
-    return DefWindowProc(hWnd, message, wParam, lParam);
+    return DefWindowProc(hWnd, message, wParam, lParam);  // Handle any messages the switch statement didn't.
 }
