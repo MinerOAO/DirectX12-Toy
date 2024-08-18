@@ -7,11 +7,11 @@ public:
 
 	inline float GameTimer::CurrentTime() const
 	{
-		return static_cast<float>(mCurrentTime);
+		return static_cast<float>(mCurrentTime) * mSecondsPerCount;
 	}
 	inline float GameTimer::DeltaTime() const
 	{
-		return static_cast<float>(mDeltaTime);
+		return static_cast<float>(mDeltaTime) * mSecondsPerCount;
 	}
 
 	void OnReset();

@@ -19,6 +19,9 @@
     <Filter Include="Source Files\Tools">
       <UniqueIdentifier>{9360df5d-1055-49ac-a092-4b0e04919d3c}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Shaders">
+      <UniqueIdentifier>{480caaa7-52c7-44dd-9498-c32679824ff3}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\DXSample.h">
@@ -59,6 +62,9 @@
     <ClCompile Include="src\D3D12Toy.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\DXSampleHelper.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CopyFileToFolders Include="assets\shaders\shaders.hlsl">
@@ -67,5 +73,13 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="src\Shaders\PixelShader.hlsl">
+      <Filter>Source Files\Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="src\Shaders\VertexShader.hlsl">
+      <Filter>Source Files\Shaders</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>

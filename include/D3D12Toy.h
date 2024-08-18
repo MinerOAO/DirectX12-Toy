@@ -27,6 +27,10 @@ protected:
 
 	bool mWindowd = true;
 
+	float mFOV = 0.25 * XM_PI;
+	float nearZ = 1.0f;
+	float farZ = 100.0f;
+
 private:
 	ComPtr<IDXGIFactory4> mFactory; //Using DXGIFactory4 for WARP
 	ComPtr<IDXGIAdapter> mAdapter; //GPU adapter
@@ -43,6 +47,19 @@ private:
 	ComPtr<ID3D12DescriptorHeap> mDSVHeap;
 	ComPtr<ID3D12Resource> mSwapChainBuffer[mBufferCount];
 	ComPtr<ID3D12Resource> mDepthStencilBuffer;
+	
+	//Upload (vertices/indices) to default heap using UploadBuffer
+	std::unique_ptr<UploadBuffer<ObjectConstants>> mObjectCB;
+	std::unique_ptr<MeshGeometry> mGeometry;
+
+	ComPtr<ID3D12DescriptorHeap> mCBVHeap; //CBV for CPU and GPU commmu
+	ComPtr<ID3D12RootSignature> mRootSignature;
+
+	ComPtr<ID3DBlob> mVertexShader; //bytecode
+	ComPtr<ID3DBlob> mPixelShader;
+	std::vector<D3D12_INPUT_ELEMENT_DESC> mInputLayout;
+
+	ComPtr<ID3D12PipelineState> mPSO;
 
 	UINT mRTVDescSize; //Render Target View Descriptor Size
 	UINT mDSVDescSize; //Depth / Stencil
@@ -50,10 +67,28 @@ private:
 
 	D3D12_VIEWPORT mViewport; //Reset whenever commandlist is reset
 	D3D12_RECT mScissorRect;	//Reset whenever commandlist is reset
+	XMFLOAT4X4 mWorld;
+	XMFLOAT4X4 mView;
+	XMFLOAT4X4 mProj;
+
+	void CheckFeatureSupport();
 
 	void CreateSwapChain();
 	void CreateCommandObjects();
+
 	virtual void CreateRTVAndDSVDescriptorHeap();
+	//Below TODO
+	void CreateCBVDescriptorHeap();
+
+	void CreateRootSignature();
+
+	void CreateShadersAndInputLayout();
+
+	//Organize geometry, upload to default heap
+	void BuildGeometry(); //VBV and IBV creating on render
+	
+	void CreatePipelineStateObject(); 
+
 	void FlushCommandQueue();
 
 };
