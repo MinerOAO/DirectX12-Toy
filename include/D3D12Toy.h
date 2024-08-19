@@ -14,6 +14,9 @@ public:
 	virtual void OnResize();
 	virtual void OnRender();
 	virtual void OnDestroy();
+
+	void OnMouseMove();
+
 protected:
 	const D3D_FEATURE_LEVEL mAPPFeatureLevel = D3D_FEATURE_LEVEL_11_0;
 	DXGI_FORMAT mBackBufferFormat = DXGI_FORMAT_R8G8B8A8_UNORM; //UNORM and <= 10bit, otherwise may cause unhandle exception when creating swapchain

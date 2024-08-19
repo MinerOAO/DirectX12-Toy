@@ -5,7 +5,7 @@ D3DToy::D3DToy(UINT width, UINT height, std::wstring name) : DXSample(width, hei
 {
 	XMStoreFloat4x4(&mWorld, XMMatrixIdentity());
 	XMStoreFloat4x4(&mView, XMMatrixIdentity());
-	XMMATRIX p = XMMatrixPerspectiveFovLH(mFOV, static_cast<float>(mWidth) / mHeight, nearZ, farZ);
+	XMMATRIX p = XMMatrixPerspectiveFovLH(mFOV, m_aspectRatio, nearZ, farZ);
 	XMStoreFloat4x4(&mProj, p);
 }
 D3DToy::~D3DToy()
@@ -15,6 +15,12 @@ D3DToy::~D3DToy()
 		FlushCommandQueue();
 	}
 }
+
+void D3DToy::OnMouseMove()
+{
+
+}
+
 
 void D3DToy::OnInit()
 {
@@ -73,10 +79,10 @@ void D3DToy::OnInit()
 void D3DToy::OnUpdate()
 {
 	DXSample::OnUpdate();
-	float x = 3.0f;
+	float x = 4.0f * cos(mTimer.CurrentTime());
 	float y = 3.0f;
-	float z = 3.0f;
-
+	float z = 4.0f * sin(mTimer.CurrentTime());
+	
 	XMVECTOR position = XMVectorSet(x, y, z, 1.0f);
 	XMVECTOR target = XMVectorZero();
 	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
@@ -99,7 +105,7 @@ void D3DToy::OnResize()
 	DXSample::OnResize();
 	//When resized, compute aspect ratio and projection matrix
 	
-	XMMATRIX p = XMMatrixPerspectiveFovLH(mFOV, static_cast<float>(mWidth) / mHeight, nearZ, farZ);
+	XMMATRIX p = XMMatrixPerspectiveFovLH(mFOV, m_aspectRatio, nearZ, farZ);
 	XMStoreFloat4x4(&mProj, p);
 }
 void D3DToy::OnRender()
@@ -374,60 +380,60 @@ void D3DToy::CreateShadersAndInputLayout()
 }
 void D3DToy::BuildGeometry()
 {
-	Vertex vertices[] =
+	std::vector<Vertex> vertices =
 	{
-		Vertex({ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT4(blue) }),
-		Vertex({ XMFLOAT3(-1.0f, +1.0f, -1.0f), XMFLOAT4(blue) }),
-		Vertex({ XMFLOAT3(+1.0f, +1.0f, -1.0f), XMFLOAT4(blue) }),
-		Vertex({ XMFLOAT3(+1.0f, -1.0f, -1.0f), XMFLOAT4(blue) }),
-		Vertex({ XMFLOAT3(-1.0f, -1.0f, +1.0f), XMFLOAT4(blue) }),
-		Vertex({ XMFLOAT3(-1.0f, +1.0f, +1.0f), XMFLOAT4(blue) }),
-		Vertex({ XMFLOAT3(+1.0f, +1.0f, +1.0f), XMFLOAT4(blue) }),
-		Vertex({ XMFLOAT3(+1.0f, -1.0f, +1.0f), XMFLOAT4(blue) })
+		Vertex({ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT4(lightBlue) }),
+		Vertex({ XMFLOAT3(-1.0f, +1.0f, -1.0f), XMFLOAT4(lightBlue) }),
+		Vertex({ XMFLOAT3(+1.0f, +1.0f, -1.0f), XMFLOAT4(lightGreen) }),
+		Vertex({ XMFLOAT3(+1.0f, -1.0f, -1.0f), XMFLOAT4(lightGreen) }),
+		Vertex({ XMFLOAT3(-1.0f, -1.0f, +1.0f), XMFLOAT4(lightGreen) }),
+		Vertex({ XMFLOAT3(-1.0f, +1.0f, +1.0f), XMFLOAT4(lightGreen) }),
+		Vertex({ XMFLOAT3(+1.0f, +1.0f, +1.0f), XMFLOAT4(lightBlue) }),
+		Vertex({ XMFLOAT3(+1.0f, -1.0f, +1.0f), XMFLOAT4(lightBlue) })
 	};
 	const UINT64 vbStride = sizeof(Vertex);
 	const UINT64 vbByteSize = 8 * sizeof(Vertex);
 
-	uint16_t indices[] = {  // front face
-	0, 1, 2,
-	0, 2, 3,
-	// back face
-	4, 6, 5,
-	4, 7, 6,
-	// left face
-	4, 5, 1,
-	4, 1, 0,
-	// right face
-	3, 2, 6,
-	3, 6, 7,
-	// top face
-	1, 5, 6,
-	1, 6, 2,
-	// bottom face
-	4, 0, 3,
-	4, 3, 7
+	std::vector<uint16_t> indices = {  // front face
+		0, 1, 2,
+		0, 2, 3,
+		// back face
+		4, 6, 5,
+		4, 7, 6,
+		// left face
+		4, 5, 1,
+		4, 1, 0,
+		// right face
+		3, 2, 6,
+		3, 6, 7,
+		// top face
+		1, 5, 6,
+		1, 6, 2,
+		// bottom face
+		4, 0, 3,
+		4, 3, 7
 	};
-	const UINT ibByteSize = sizeof(indices);
+	const UINT ibByteSize = indices.size() * sizeof(uint16_t);
 
 	mGeometry = std::make_unique<MeshGeometry>();
 	mGeometry->Name = "boxGeo";
 
 	//Create resource on CPU
 	ThrowIfFailed(D3DCreateBlob(vbByteSize, &mGeometry->vertexBufferCPU));
-	CopyMemory(mGeometry->vertexBufferCPU->GetBufferPointer(), vertices, vbByteSize);
+	CopyMemory(mGeometry->vertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);
 	ThrowIfFailed(D3DCreateBlob(ibByteSize, &mGeometry->indexBufferCPU));
-	CopyMemory(mGeometry->indexBufferCPU->GetBufferPointer(), indices, ibByteSize);
+	CopyMemory(mGeometry->indexBufferCPU->GetBufferPointer(), indices.data(), ibByteSize);
 
-	//Committed to default heap intermediately.
-	CreateDefaultBuffer(mDevice.Get(), mCommandList.Get(), vertices, vbByteSize, mGeometry->vertexBufferGPU, mGeometry->vertexBufferUploader);
-	CreateDefaultBuffer(mDevice.Get(), mCommandList.Get(), indices, ibByteSize, mGeometry->indexBufferGPU, mGeometry->indexBufferUploader);
+	//Committed to default heap intermediately. IASetVertex/IndexBuffer indicates the interpting ways
+	CreateDefaultBuffer(mDevice.Get(), mCommandList.Get(), mGeometry->vertexBufferCPU->GetBufferPointer(), vbByteSize, mGeometry->vertexBufferGPU, mGeometry->vertexBufferUploader);
+	CreateDefaultBuffer(mDevice.Get(), mCommandList.Get(), mGeometry->indexBufferCPU->GetBufferPointer(), ibByteSize, mGeometry->indexBufferGPU, mGeometry->indexBufferUploader);
 	//Set necessary info
 	mGeometry->vertexBufferByteSize = vbByteSize;
 	mGeometry->vertexByteStride = sizeof(Vertex);
 	mGeometry->indexFormat = DXGI_FORMAT_R16_UINT;
 	mGeometry->indexBufferByteSize = ibByteSize;
 	//Set submesh
-	mGeometry->drawArgs["box"] = SubmeshGeometry{ sizeof(indices) / sizeof(uint16_t), 0, 0};
+	mGeometry->drawArgs["box"] = SubmeshGeometry{ (UINT)indices.size(), 0, 0}; //Pay attention to index count
 }
 void D3DToy::CreatePipelineStateObject()
 {

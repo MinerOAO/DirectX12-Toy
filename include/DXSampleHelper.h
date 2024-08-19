@@ -19,7 +19,8 @@
 using Microsoft::WRL::ComPtr;
 
 const FLOAT clearColor[4] = { 1.0f, 1.0f, 1.0f ,1.0f };
-const FLOAT blue[4] = { 0.4f, 0.8f, 1.0f, 1.0f };
+const FLOAT lightBlue[4] = { 0.4f, 0.8f, 1.0f, 1.0f };
+const FLOAT lightGreen[4] = { 0.4f, 1.0f, 0.8f, 1.0f };
 
 struct Vertex
 {

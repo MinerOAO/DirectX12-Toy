@@ -24,13 +24,14 @@ public:
 
     virtual void OnInit() = 0;
     virtual void OnUpdate() = 0;
-    virtual void OnResize() {};
+    virtual void OnResize() {}
     virtual void OnRender() = 0;
     virtual void OnDestroy() = 0;
 
     // Samples override the event handlers to handle specific messages.
     virtual void OnKeyDown(UINT8 /*key*/)   {}
     virtual void OnKeyUp(UINT8 /*key*/)     {}
+    virtual void OnMouseMove() {}
 
     // Accessors.
     UINT GetWidth() const           { return mWidth; }
@@ -52,14 +53,12 @@ protected:
 
     // Adapter info.
     bool m_useWarpDevice;
-
+    //Timer
+    GameTimer mTimer;
 private:
     // Root assets path.
     std::wstring m_assetsPath;
 
     // Window title.
     std::wstring m_title;
-
-    //Timer
-    GameTimer mTimer;
 };
