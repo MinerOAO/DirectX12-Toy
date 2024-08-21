@@ -27,11 +27,7 @@ struct Vertex
     DirectX::XMFLOAT3 Pos;
     DirectX::XMFLOAT4 Color;
 };
-// Constant data per-object.
-struct ObjectConstants
-{
-    DirectX::XMFLOAT4X4 WorldViewProj;
-};
+
 struct SubmeshGeometry
 {
     UINT indexCount = 0;
