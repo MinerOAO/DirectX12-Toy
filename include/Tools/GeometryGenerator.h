@@ -34,4 +34,5 @@ public:
 	MeshData BuildCylinder(float bottomR, float topR, float height, int slice, int stack);
 	void BuildCylinderCap(float bottomR, float topR, float height, uint32_t slice, uint32_t stack, MeshData& meshData);
 	MeshData BuildBox(float length, float width, float height);
+	MeshData BuildSphere(float radius, int slice, int stack);
 };

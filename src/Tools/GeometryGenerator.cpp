@@ -161,21 +161,93 @@ GeometryGenerator::MeshData GeometryGenerator::BuildBox(float length, float widt
 	v.push_back(Vertex(-l2, -h2, -w2, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f));
 	v.push_back(Vertex(-l2, +h2, -w2, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f));
 	//Right
-	v.push_back(Vertex(+l2, +h2, +w2, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f));
-	v.push_back(Vertex(+l2, -h2, +w2, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f));
-	v.push_back(Vertex(+l2, -h2, -w2, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f));
 	v.push_back(Vertex(+l2, +h2, -w2, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f));
+	v.push_back(Vertex(+l2, -h2, -w2, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f));
+	v.push_back(Vertex(+l2, -h2, +w2, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f));
+	v.push_back(Vertex(+l2, +h2, +w2, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f));
 
 	//indices
 	for (uint32_t i = 0; i < 24; i+=4)
 	{
+		meshData.indices.push_back(i + 1);
 		meshData.indices.push_back(i);
-		meshData.indices.push_back(i+1);
-		meshData.indices.push_back(i+2);
+		meshData.indices.push_back(i + 3);
 
-		meshData.indices.push_back(i);
-		meshData.indices.push_back(i+2);
-		meshData.indices.push_back(i+3);
+		meshData.indices.push_back(i + 1);
+		meshData.indices.push_back(i + 3);
+		meshData.indices.push_back(i + 2);
+		
+		//meshData.indices.push_back(i + 2);
+		//meshData.indices.push_back(i+1);
+		//meshData.indices.push_back(i);
+
+		//meshData.indices.push_back(i + 3);
+		//meshData.indices.push_back(i+2);
+		//meshData.indices.push_back(i);
+	}
+	return meshData;
+}
+GeometryGenerator::MeshData GeometryGenerator::BuildSphere(float radius, int slice, int stack)
+{
+	MeshData meshData;
+	float stackHeight = radius / stack;
+	float currentY = -0.5 * radius;
+	float currentR = 0;
+
+	float angleDelta = 2.0 * DirectX::XM_PI / slice;
+	//layers/stacks, n layers need n+1 wireframe
+	for (uint32_t i = 1; i <= stack; ++i)
+	{
+		currentR = sqrtf(powf(radius, 2) - powf((radius - stackHeight * i), 2)); //sphere has a non-linear R
+
+		for (uint32_t j = 0; j <= slice; ++j)
+		{
+			Vertex v;
+			float c = cosf(angleDelta * j);
+			float s = sinf(angleDelta * j);
+			v.position = DirectX::XMFLOAT3(
+				c * currentR,
+				currentY,
+				s * currentR
+			);
+			//Range from (0, 1)
+			v.texCoordinate = DirectX::XMFLOAT2(
+				(float)j / slice,
+				1.0f - (float)i / stack
+			);
+			//unit length ?
+			//Perpendicular to (c,0,s)?
+			//切线向量
+			v.tangentU = DirectX::XMFLOAT3(-s, 0.0f, c);
+
+			float dr = radius;
+			//指向圆柱体的轴线
+			//计算副切线
+			DirectX::XMFLOAT3 bitangent(dr * c, -radius, dr * s);
+			DirectX::XMVECTOR T = DirectX::XMLoadFloat3(&v.tangentU);//切线
+			DirectX::XMVECTOR B = DirectX::XMLoadFloat3(&bitangent);//副切线
+			DirectX::XMVECTOR N = DirectX::XMVector3Normalize(DirectX::XMVector3Cross(T, B));
+			DirectX::XMStoreFloat3(&v.normal, N);
+
+			meshData.vertices.push_back(v);
+		}
+		currentY += stackHeight;
+	}
+	uint32_t ringVertexCount = slice + 1;
+	for (uint32_t i = 0; i < stack; ++i)
+	{
+		for (uint32_t j = 0; j < slice; ++j)
+		{
+			//ABC
+			meshData.indices.push_back(i * ringVertexCount + j);
+			meshData.indices.push_back((i + 1) * ringVertexCount + j);
+			meshData.indices.push_back((i + 1) * ringVertexCount + j + 1);
+
+			//ACD
+			meshData.indices.push_back(i * ringVertexCount + j);
+			meshData.indices.push_back((i + 1) * ringVertexCount + j + 1);
+			meshData.indices.push_back(i * ringVertexCount + j + 1);
+		}
 	}
 	return meshData;
 }

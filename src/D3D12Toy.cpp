@@ -3,9 +3,18 @@
 
 D3DToy::D3DToy(UINT width, UINT height, std::wstring name) : DXSample(width, height, name) 
 {
-	XMStoreFloat4x4(&mView, XMMatrixIdentity());
+	//Init view matrix
+	XMVECTOR position = XMVectorSet(mRadius * cosf(mPhi) * cosf(mTheta), mRadius * sinf(mPhi), mRadius * cosf(mPhi) * sinf(mTheta), 1.0f);
+	XMVECTOR target = XMVectorZero();
+	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+
+	XMMATRIX view = XMMatrixLookAtLH(position, target, up);
+	XMStoreFloat4x4(&mView, view);
+	//INit proj
+
 	XMMATRIX p = XMMatrixPerspectiveFovLH(mFOV, m_aspectRatio, nearZ, farZ);
 	XMStoreFloat4x4(&mProj, p);
+
 }
 D3DToy::~D3DToy()
 {
@@ -15,9 +24,32 @@ D3DToy::~D3DToy()
 	}
 }
 
-void D3DToy::OnMouseMove()
+void D3DToy::OnMouseMove(int xPos, int yPos, bool updatePos)
 {
+	if (updatePos)
+	{
+		float yaw = XMConvertToRadians(0.25f * static_cast<float>(xPos - mLastMousePos.x));
+		float pitch = XMConvertToRadians(0.25f * static_cast<float>(yPos - mLastMousePos.y));
 
+		mPhi += pitch;
+		mTheta += yaw;
+
+		//limits pitch angle
+		mPhi = mPhi > XM_PI / 2 ? XM_PI / 2 : mPhi;
+		mPhi = mPhi < -XM_PI / 2 ? -XM_PI / 2 : mPhi;
+
+		// sin* cos, cos, sin * sin?
+		// cos * cos, sin, cos * sin?
+		XMVECTOR position = XMVectorSet(mRadius * cosf(mPhi) * cosf(mTheta), mRadius * sinf(mPhi), -mRadius * cosf(mPhi) * sinf(mTheta), 1.0f);
+		XMVECTOR target = XMVectorZero();
+		XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+
+		XMMATRIX view = XMMatrixLookAtLH(position, target, up);
+		XMStoreFloat4x4(&mView, view);
+	}
+	//Keep tracking position, avoiding sudden movement.
+	mLastMousePos.x = xPos;
+	mLastMousePos.y = yPos;
 }
 
 
@@ -106,19 +138,28 @@ void D3DToy::OnUpdate()
 			mCurrentFrameRes->objCB->CopyData(e->objCBIndex, objConst);
 			--e->numFramesDirty;
 		}
+		if (e->objCBIndex == 0) //update box
+		{
+			ObjectConstants objConst;
+			XMMATRIX world = XMMatrixIdentity();
+			XMMATRIX rotation = XMMatrixRotationY(mTimer.CurrentTime());
+			XMMATRIX trans = XMMatrixTranslation(3 * cos(2 * mTimer.CurrentTime()), 0.0f, 3 * sin(2 * mTimer.CurrentTime()));
+			world = XMMatrixMultiply(rotation, world);
+			world = XMMatrixMultiply(trans, world);
+			XMStoreFloat4x4(&objConst.world, XMMatrixTranspose(world));
+			mCurrentFrameRes->objCB->CopyData(e->objCBIndex, objConst);
+			e->numFramesDirty = numFrameResources - 1;
+		}
 	}
 
 	//Update pass constants
-	float x = 4.0f * cos(mTimer.CurrentTime());
-	float y = 3.0f;
-	float z = 4.0f * sin(mTimer.CurrentTime());
-	
-	XMVECTOR position = XMVectorSet(x, y, z, 1.0f);
-	XMVECTOR target = XMVectorZero();
-	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-	
-	XMMATRIX view = XMMatrixLookAtLH(position, target, up);
-	XMStoreFloat4x4(&mView, view);
+	//XMVECTOR position = XMVectorSet(4.0f, 1.0f, 4.0f, 1.0f);
+	//XMVECTOR target = XMVectorZero();
+	//XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+
+	//XMMATRIX view = XMMatrixLookAtLH(position, target, up);
+	//XMStoreFloat4x4(&mView, view);
+	XMMATRIX view = XMLoadFloat4x4(&mView);
 	XMMATRIX proj = XMLoadFloat4x4(&mProj);
 	XMMATRIX viewProj = XMMatrixMultiply(view, proj);
 
@@ -427,6 +468,7 @@ void D3DToy::CreateRootSignature()
 	cbvTable0.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0); //Set baseShaderRegister 0 -> buffer0(b0)
 	slotRootParameter[0].InitAsDescriptorTable(1, &cbvTable0); //Num of descriptor range, descriptor range
 
+
 	CD3DX12_DESCRIPTOR_RANGE cbvTable1;
 	cbvTable1.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 1); //Set baseShaderRegister 1 -> buffer1(b1)
 	slotRootParameter[1].InitAsDescriptorTable(1, &cbvTable1);
@@ -465,14 +507,17 @@ void D3DToy::BuildGeometry()
 {
 	GeometryGenerator geoGen;
 	GeometryGenerator::MeshData box = geoGen.BuildBox(1.0f, 1.0f, 1.0f);
-	GeometryGenerator::MeshData cylinder = geoGen.BuildCylinder(2.0f, 1.0f, 2.0f, 36, 36);
+	GeometryGenerator::MeshData cylinder = geoGen.BuildCylinder(1.0f, 0.5f, 1.0f, 36, 36);
+	GeometryGenerator::MeshData sphere = geoGen.BuildSphere(1.0f, 36, 36);
 
 	//vertex offsets
 	UINT boxVertexOffset = 0;
 	UINT cylinderVertexOffset = box.vertices.size();
+	UINT sphereVertexOffset = cylinder.vertices.size() + cylinderVertexOffset;
 	//index offsets
 	UINT boxIndexOffset = 0;
 	UINT cylinderIndexOffset = box.indices.size();
+	UINT sphereIndexOffset = cylinder.indices.size() + cylinderIndexOffset;
 	//Define submesh
 	SubmeshGeometry boxSubmesh;
 	boxSubmesh.indexCount = box.indices.size(); //Pay attention to index count
@@ -484,7 +529,12 @@ void D3DToy::BuildGeometry()
 	cylinderSubmesh.startIndexLocation = cylinderIndexOffset;
 	cylinderSubmesh.baseVertexLocation = cylinderVertexOffset;
 
-	std::vector<Vertex> vertices(box.vertices.size() + cylinder.vertices.size());
+	SubmeshGeometry sphereSubmesh;
+	sphereSubmesh.indexCount = sphere.indices.size();
+	sphereSubmesh.startIndexLocation = sphereIndexOffset;
+	sphereSubmesh.baseVertexLocation = sphereVertexOffset;
+
+	std::vector<Vertex> vertices(box.vertices.size() + cylinder.vertices.size() + sphere.vertices.size());
 	UINT k = 0;
 	for (size_t i = 0; i < box.vertices.size(); ++i, ++k)
 	{
@@ -512,12 +562,26 @@ void D3DToy::BuildGeometry()
 		}
 	}
 
+	for (size_t i = 0; i < sphere.vertices.size(); ++i, ++k)
+	{
+		vertices[k].Pos = sphere.vertices[i].position;
+		if (i % 2 == 0)
+		{
+			vertices[k].Color = XMFLOAT4(lightBlue);
+		}
+		else
+		{
+			vertices[k].Color = XMFLOAT4(lightGreen);
+		}
+	}
+
 	const UINT64 vbStride = sizeof(Vertex);
 	const UINT64 vbByteSize = vertices.size() * sizeof(Vertex);
 
 	std::vector<uint32_t> indices;
 	indices.insert(indices.end(), box.indices.begin(), box.indices.end());
 	indices.insert(indices.end(), cylinder.indices.begin(), cylinder.indices.end());
+	indices.insert(indices.end(), sphere.indices.begin(), sphere.indices.end());
 
 	const UINT ibByteSize = indices.size() * sizeof(uint32_t);
 
@@ -541,6 +605,7 @@ void D3DToy::BuildGeometry()
 	//Set submesh
 	mGeometry->drawArgs["box"] = boxSubmesh;
 	mGeometry->drawArgs["cylinder"] = cylinderSubmesh;
+	//mGeometry->drawArgs["sphere"] = sphereSubmesh;
 }
 void D3DToy::BuildRenderItems()
 {
@@ -561,6 +626,15 @@ void D3DToy::BuildRenderItems()
 	cylinderRenderItem->startIndexLocation = cylinderRenderItem->geo->drawArgs["cylinder"].startIndexLocation;
 	cylinderRenderItem->baseVertexLocation = cylinderRenderItem->geo->drawArgs["cylinder"].baseVertexLocation;
 	mRenderItems.push_back(std::move(cylinderRenderItem));
+
+	auto sphereRenderItem = std::make_unique<RenderItem>();
+	sphereRenderItem->objCBIndex = 2;
+	sphereRenderItem->geo = mGeometry.get();
+	sphereRenderItem->primitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	sphereRenderItem->indexCount = sphereRenderItem->geo->drawArgs["sphere"].indexCount;
+	sphereRenderItem->startIndexLocation = sphereRenderItem->geo->drawArgs["sphere"].startIndexLocation;
+	sphereRenderItem->baseVertexLocation = sphereRenderItem->geo->drawArgs["sphere"].baseVertexLocation;
+	mRenderItems.push_back(std::move(sphereRenderItem));
 
 	for (auto& e : mRenderItems)
 	{

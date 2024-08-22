@@ -12,6 +12,7 @@
 #pragma once
 
 #include "DXSample.h"
+#include <windowsx.h>
 
 class DXSample;
 

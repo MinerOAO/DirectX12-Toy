@@ -16,7 +16,7 @@ public:
 	virtual void OnRender();
 	virtual void OnDestroy();
 
-	void OnMouseMove();
+	void OnMouseMove(int xPos, int yPos, bool updatePos);
 
 protected:
 	const D3D_FEATURE_LEVEL mAPPFeatureLevel = D3D_FEATURE_LEVEL_11_0;
@@ -36,6 +36,11 @@ protected:
 	float farZ = 100.0f;
 
 	static const int numFrameResources = 3;
+
+	XMFLOAT2 mLastMousePos;
+	float mPhi = 0.0f; //y
+	float mTheta = 0.0f; //xz
+	float mRadius = 4.0f;
 
 private:
 	// Constant data per-object.

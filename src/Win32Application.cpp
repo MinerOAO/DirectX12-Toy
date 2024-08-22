@@ -93,26 +93,20 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND hWnd, UINT message, WPARAM wP
         //Resize Event
         pSample->OnResize();
         return 0;
+    case WM_MOUSEMOVE:
+        pSample->OnMouseMove(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam), ((wParam & WM_LBUTTONDOWN) != 0));
+        return 0;
     case WM_KEYDOWN:
-        if (pSample)
-        {
-            pSample->OnKeyDown(static_cast<UINT8>(wParam));
-        }
+        pSample->OnKeyDown(static_cast<UINT8>(wParam));
         return 0;
 
     case WM_KEYUP:
-        if (pSample)
-        {
-            pSample->OnKeyUp(static_cast<UINT8>(wParam));
-        }
+        pSample->OnKeyUp(static_cast<UINT8>(wParam));
         return 0;
 
     case WM_PAINT:
-        if (pSample)
-        {
-            pSample->OnUpdate();
-            pSample->OnRender();
-        }
+        pSample->OnUpdate();
+        pSample->OnRender();
         return 0;
 
     case WM_DESTROY:
