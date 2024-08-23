@@ -52,6 +52,11 @@ void D3DToy::OnMouseMove(int xPos, int yPos, bool updatePos)
 	mLastMousePos.y = yPos;
 }
 
+void D3DToy::OnZoom(short delta)
+{
+	XMMATRIX view = XMLoadFloat4x4(&mView);
+
+}
 
 void D3DToy::OnInit()
 {
@@ -91,9 +96,8 @@ void D3DToy::OnInit()
 //Create Depth/Stencil buffer, DSV. Initialize DSV state
 	CreateRTVAndDSVDescriptorHeap();
 //Organize geometry upload to default heap
-	BuildGeometry();//VBV and IBV creating in DrawRenderItems()
 //Essential info for render geometries
-	BuildRenderItems();
+	BuildGeometryAndRenderItems();//VBV and IBV creating in DrawRenderItems()
 //Create Frame Reousrces and their Constant Buffer descriptor heap
 	CreateCBVDescriptorHeap();
 //Create Root signature
@@ -143,9 +147,9 @@ void D3DToy::OnUpdate()
 			ObjectConstants objConst;
 			XMMATRIX world = XMMatrixIdentity();
 			XMMATRIX rotation = XMMatrixRotationY(mTimer.CurrentTime());
-			XMMATRIX trans = XMMatrixTranslation(3 * cos(2 * mTimer.CurrentTime()), 0.0f, 3 * sin(2 * mTimer.CurrentTime()));
-			world = XMMatrixMultiply(rotation, world);
+			XMMATRIX trans = XMMatrixTranslation(mRadius * cos(2 * mTimer.CurrentTime()), 0.0f, mRadius * sin(2 * mTimer.CurrentTime()));
 			world = XMMatrixMultiply(trans, world);
+			world = XMMatrixMultiply(rotation, world);
 			XMStoreFloat4x4(&objConst.world, XMMatrixTranspose(world));
 			mCurrentFrameRes->objCB->CopyData(e->objCBIndex, objConst);
 			e->numFramesDirty = numFrameResources - 1;
@@ -503,38 +507,34 @@ void D3DToy::CreateShadersAndInputLayout()
 		{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
 	};
 }
-void D3DToy::BuildGeometry()
+void D3DToy::BuildGeometryAndRenderItems()
 {
 	GeometryGenerator geoGen;
-	GeometryGenerator::MeshData box = geoGen.BuildBox(1.0f, 1.0f, 1.0f);
-	GeometryGenerator::MeshData cylinder = geoGen.BuildCylinder(1.0f, 0.5f, 1.0f, 36, 36);
-	GeometryGenerator::MeshData sphere = geoGen.BuildSphere(1.0f, 36, 36);
+	GeometryGenerator::MeshData box = geoGen.BuildBox(10.0f, 10.0f, 10.0f);
+
+	GeometryGenerator::MeshData objData;
+	geoGen.GeometryGenerator::ReadObjFileInOne("assets\\models\\Homework\\Ai.obj", objData);
 
 	//vertex offsets
 	UINT boxVertexOffset = 0;
-	UINT cylinderVertexOffset = box.vertices.size();
-	UINT sphereVertexOffset = cylinder.vertices.size() + cylinderVertexOffset;
+	UINT modelVertexOffset = box.vertices.size(); //
 	//index offsets
 	UINT boxIndexOffset = 0;
-	UINT cylinderIndexOffset = box.indices.size();
-	UINT sphereIndexOffset = cylinder.indices.size() + cylinderIndexOffset;
+	UINT modelIndexOffset = box.indices.size(); //
+	
 	//Define submesh
 	SubmeshGeometry boxSubmesh;
 	boxSubmesh.indexCount = box.indices.size(); //Pay attention to index count
 	boxSubmesh.startIndexLocation = boxIndexOffset;
 	boxSubmesh.baseVertexLocation = boxVertexOffset;
 
-	SubmeshGeometry cylinderSubmesh;
-	cylinderSubmesh.indexCount = cylinder.indices.size();
-	cylinderSubmesh.startIndexLocation = cylinderIndexOffset;
-	cylinderSubmesh.baseVertexLocation = cylinderVertexOffset;
+	SubmeshGeometry objSubmesh; //
+	objSubmesh.indexCount = objData.indices.size();
+	objSubmesh.startIndexLocation = modelIndexOffset;
+	objSubmesh.baseVertexLocation = modelVertexOffset;
 
-	SubmeshGeometry sphereSubmesh;
-	sphereSubmesh.indexCount = sphere.indices.size();
-	sphereSubmesh.startIndexLocation = sphereIndexOffset;
-	sphereSubmesh.baseVertexLocation = sphereVertexOffset;
 
-	std::vector<Vertex> vertices(box.vertices.size() + cylinder.vertices.size() + sphere.vertices.size());
+	std::vector<Vertex> vertices(box.vertices.size() + objData.vertices.size());
 	UINT k = 0;
 	for (size_t i = 0; i < box.vertices.size(); ++i, ++k)
 	{
@@ -549,30 +549,10 @@ void D3DToy::BuildGeometry()
 		}
 	}
 
-	for (size_t i = 0; i < cylinder.vertices.size(); ++i, ++k)
+	for (size_t i = 0; i < objData.vertices.size(); ++i, ++k) //
 	{
-		vertices[k].Pos = cylinder.vertices[i].position;
-		if (i % 2 == 0)
-		{
-			vertices[k].Color = XMFLOAT4(lightBlue);
-		}
-		else
-		{
-			vertices[k].Color = XMFLOAT4(lightGreen);
-		}
-	}
-
-	for (size_t i = 0; i < sphere.vertices.size(); ++i, ++k)
-	{
-		vertices[k].Pos = sphere.vertices[i].position;
-		if (i % 2 == 0)
-		{
-			vertices[k].Color = XMFLOAT4(lightBlue);
-		}
-		else
-		{
-			vertices[k].Color = XMFLOAT4(lightGreen);
-		}
+		vertices[k].Pos = objData.vertices[i].position;
+		vertices[k].Color = XMFLOAT4(lightBlue);
 	}
 
 	const UINT64 vbStride = sizeof(Vertex);
@@ -580,8 +560,7 @@ void D3DToy::BuildGeometry()
 
 	std::vector<uint32_t> indices;
 	indices.insert(indices.end(), box.indices.begin(), box.indices.end());
-	indices.insert(indices.end(), cylinder.indices.begin(), cylinder.indices.end());
-	indices.insert(indices.end(), sphere.indices.begin(), sphere.indices.end());
+	indices.insert(indices.end(), objData.indices.begin(), objData.indices.end()); //
 
 	const UINT ibByteSize = indices.size() * sizeof(uint32_t);
 
@@ -603,44 +582,39 @@ void D3DToy::BuildGeometry()
 	mGeometry->indexFormat = DXGI_FORMAT_R32_UINT;
 	mGeometry->indexBufferByteSize = ibByteSize;
 	//Set submesh
-	mGeometry->drawArgs["box"] = boxSubmesh;
-	mGeometry->drawArgs["cylinder"] = cylinderSubmesh;
-	//mGeometry->drawArgs["sphere"] = sphereSubmesh;
-}
-void D3DToy::BuildRenderItems()
-{
+	mGeometry->drawArgs[box.name] = boxSubmesh;
+	mGeometry->drawArgs[objData.name] = objSubmesh; //
+
+	//Build Render Items
 	auto boxRenderItem = std::make_unique<RenderItem>();
 	boxRenderItem->objCBIndex = 0;
 	boxRenderItem->geo = mGeometry.get();
 	boxRenderItem->primitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	boxRenderItem->indexCount = boxRenderItem->geo->drawArgs["box"].indexCount;
-	boxRenderItem->startIndexLocation = boxRenderItem->geo->drawArgs["box"].startIndexLocation;
-	boxRenderItem->baseVertexLocation = boxRenderItem->geo->drawArgs["box"].baseVertexLocation;
+	boxRenderItem->indexCount = boxRenderItem->geo->drawArgs[box.name].indexCount;
+	boxRenderItem->startIndexLocation = boxRenderItem->geo->drawArgs[box.name].startIndexLocation;
+	boxRenderItem->baseVertexLocation = boxRenderItem->geo->drawArgs[box.name].baseVertexLocation;
 	mRenderItems.push_back(std::move(boxRenderItem));
 
-	auto cylinderRenderItem = std::make_unique<RenderItem>();
-	cylinderRenderItem->objCBIndex = 1;
-	cylinderRenderItem->geo = mGeometry.get();
-	cylinderRenderItem->primitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	cylinderRenderItem->indexCount = cylinderRenderItem->geo->drawArgs["cylinder"].indexCount;
-	cylinderRenderItem->startIndexLocation = cylinderRenderItem->geo->drawArgs["cylinder"].startIndexLocation;
-	cylinderRenderItem->baseVertexLocation = cylinderRenderItem->geo->drawArgs["cylinder"].baseVertexLocation;
-	mRenderItems.push_back(std::move(cylinderRenderItem));
+	auto objRenderItem = std::make_unique<RenderItem>(); //
+	objRenderItem->objCBIndex = 1;
+	objRenderItem->geo = mGeometry.get();
 
-	auto sphereRenderItem = std::make_unique<RenderItem>();
-	sphereRenderItem->objCBIndex = 2;
-	sphereRenderItem->geo = mGeometry.get();
-	sphereRenderItem->primitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	sphereRenderItem->indexCount = sphereRenderItem->geo->drawArgs["sphere"].indexCount;
-	sphereRenderItem->startIndexLocation = sphereRenderItem->geo->drawArgs["sphere"].startIndexLocation;
-	sphereRenderItem->baseVertexLocation = sphereRenderItem->geo->drawArgs["sphere"].baseVertexLocation;
-	mRenderItems.push_back(std::move(sphereRenderItem));
+	XMMATRIX initWorld = XMMatrixIdentity();
+	initWorld = XMMatrixMultiply(XMMatrixTranslation(0.0f, -100.0f, 0.0f), initWorld);
+	XMStoreFloat4x4(&objRenderItem->world, initWorld);
+
+	objRenderItem->primitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+	objRenderItem->indexCount = objRenderItem->geo->drawArgs[objData.name].indexCount;
+	objRenderItem->startIndexLocation = objRenderItem->geo->drawArgs[objData.name].startIndexLocation;
+	objRenderItem->baseVertexLocation = objRenderItem->geo->drawArgs[objData.name].baseVertexLocation;
+	mRenderItems.push_back(std::move(objRenderItem));
 
 	for (auto& e : mRenderItems)
 	{
 		mOpaqueRenderItems.push_back(e.get());
 	}
 }
+
 void D3DToy::CreatePipelineStateObject()
 {
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc;

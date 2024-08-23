@@ -32,6 +32,7 @@ public:
     virtual void OnKeyDown(UINT8 /*key*/)   {}
     virtual void OnKeyUp(UINT8 /*key*/)     {}
     virtual void OnMouseMove(int xPos, int yPos, bool updatePos) {}
+    virtual void OnZoom(short delta) {}
 
     // Accessors.
     UINT GetWidth() const           { return mWidth; }

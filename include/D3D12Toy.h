@@ -9,14 +9,15 @@ class D3DToy : public DXSample
 {
 public:
 	D3DToy(UINT width, UINT height, std::wstring name);
-	~D3DToy();
-	virtual void OnInit();
-	virtual void OnUpdate();
-	virtual void OnResize();
-	virtual void OnRender();
-	virtual void OnDestroy();
+	~D3DToy() override;
+	virtual void OnInit() override;
+	virtual void OnUpdate() override;
+	virtual void OnResize() override;
+	virtual void OnRender() override;
+	virtual void OnDestroy() override;
 
-	void OnMouseMove(int xPos, int yPos, bool updatePos);
+	void OnMouseMove(int xPos, int yPos, bool updatePos) override;
+	void OnZoom(short delta) override;
 
 protected:
 	const D3D_FEATURE_LEVEL mAPPFeatureLevel = D3D_FEATURE_LEVEL_11_0;
@@ -32,15 +33,15 @@ protected:
 	bool mWindowd = true;
 
 	float mFOV = 0.25 * XM_PI;
-	float nearZ = 1.0f;
-	float farZ = 100.0f;
+	float nearZ = 10.0f;
+	float farZ = 10000.0f;
 
 	static const int numFrameResources = 3;
 
 	XMFLOAT2 mLastMousePos;
 	float mPhi = 0.0f; //y
 	float mTheta = 0.0f; //xz
-	float mRadius = 4.0f;
+	float mRadius = 100.0f;
 
 private:
 	// Constant data per-object.
@@ -182,9 +183,7 @@ private:
 	void CreateRTVAndDSVDescriptorHeap();
 
 	//Organize geometry, upload to default heap
-	void BuildGeometry(); //VBV and IBV creating on render
-
-	void BuildRenderItems();
+	void BuildGeometryAndRenderItems(); //VBV and IBV creating on render
 
 	void CreateCBVDescriptorHeap();
 

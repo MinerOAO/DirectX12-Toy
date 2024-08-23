@@ -88,30 +88,32 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND hWnd, UINT message, WPARAM wP
             LPCREATESTRUCT pCreateStruct = reinterpret_cast<LPCREATESTRUCT>(lParam);
             SetWindowLongPtr(hWnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(pCreateStruct->lpCreateParams));
         }
-        return 0;
+        break;
     case WM_EXITSIZEMOVE:
         //Resize Event
         pSample->OnResize();
-        return 0;
+        break;
     case WM_MOUSEMOVE:
         pSample->OnMouseMove(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam), ((wParam & WM_LBUTTONDOWN) != 0));
-        return 0;
+        break;
+    case WM_MOUSEWHEEL:
+        pSample->OnZoom(GET_WHEEL_DELTA_WPARAM(wParam));
+        break;
     case WM_KEYDOWN:
         pSample->OnKeyDown(static_cast<UINT8>(wParam));
-        return 0;
-
+        break;
     case WM_KEYUP:
         pSample->OnKeyUp(static_cast<UINT8>(wParam));
-        return 0;
-
+        break;
     case WM_PAINT:
         pSample->OnUpdate();
         pSample->OnRender();
-        return 0;
-
+        break;
     case WM_DESTROY:
         PostQuitMessage(0);
-        return 0;
-    }
-    return DefWindowProc(hWnd, message, wParam, lParam);  // Handle any messages the switch statement didn't.
+        break;
+    default:
+        return DefWindowProc(hWnd, message, wParam, lParam);    // Handle any messages the switch statement didn't.
+    }  
+    return 0;
 }

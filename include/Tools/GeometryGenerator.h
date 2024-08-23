@@ -1,5 +1,9 @@
 #pragma once
 #include "stdafx.h"
+#include <fstream>
+#include <sstream>
+#include <unordered_set>
+
 class GeometryGenerator
 {
 public:
@@ -27,12 +31,16 @@ public:
 	};
 	struct MeshData
 	{
+		std::string name;
 		std::vector<Vertex> vertices;
 		std::vector<uint32_t> indices;
+		std::string textureName;
 
 	};
-	MeshData BuildCylinder(float bottomR, float topR, float height, int slice, int stack);
+	MeshData BuildCylinder(float bottomR, float topR, float height, uint32_t slice, uint32_t stack);
 	void BuildCylinderCap(float bottomR, float topR, float height, uint32_t slice, uint32_t stack, MeshData& meshData);
 	MeshData BuildBox(float length, float width, float height);
-	MeshData BuildSphere(float radius, int slice, int stack);
+	MeshData BuildSphere(float radius, uint32_t slice, uint32_t stack);
+	void ReadObjFile(std::string filename, std::vector<GeometryGenerator::MeshData>& storage);
+	void ReadObjFileInOne(std::string filename, GeometryGenerator::MeshData& storage);
 };
