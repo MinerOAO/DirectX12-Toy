@@ -40,8 +40,10 @@ protected:
 
 	XMFLOAT2 mLastMousePos;
 	float mPhi = 0.0f; //y
-	float mTheta = 0.0f; //xz
-	float mRadius = 100.0f;
+	float mTheta = 0.0f; //xz plane
+	float mRadius = 500.0f; //r
+	const float zoomSense = 0.1f; // Speed of zooming
+	const float mouseSense = 0.25f; //Speed of mouse
 
 private:
 	// Constant data per-object.
@@ -90,6 +92,9 @@ private:
 		std::unique_ptr<UploadBuffer<ObjectConstants>> objCB = nullptr;
 		std::unique_ptr<UploadBuffer<PassConstants>> passCB = nullptr;
 
+		//Dynamic vertex buffer
+		//std::unique_ptr<UploadBuffer<Vertex>> waveVB = nullptr;
+		
 		// Fence value to mark commands up to this fence point. This lets us
 		// check if these frame resources are still in use by the GPU.
 		UINT64 fence = 0;
@@ -183,7 +188,11 @@ private:
 	void CreateRTVAndDSVDescriptorHeap();
 
 	//Organize geometry, upload to default heap
-	void BuildGeometryAndRenderItems(); //VBV and IBV creating on render
+	std::unique_ptr<RenderItem> BuildSingleGeometry(GeometryGenerator::MeshData& meshData, MeshGeometry* geometry, std::vector<Vertex>& vertices, UINT& vertexOffset, std::vector<uint32_t>& indices, UINT& indexOffset,
+		int objCBIndex, D3D12_PRIMITIVE_TOPOLOGY topology);
+
+	void BuildGeometries(); //VBV and IBV creating on render
+	void BuildSingleGroupGeometries();
 
 	void CreateCBVDescriptorHeap();
 

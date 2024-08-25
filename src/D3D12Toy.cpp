@@ -28,8 +28,8 @@ void D3DToy::OnMouseMove(int xPos, int yPos, bool updatePos)
 {
 	if (updatePos)
 	{
-		float yaw = XMConvertToRadians(0.25f * static_cast<float>(xPos - mLastMousePos.x));
-		float pitch = XMConvertToRadians(0.25f * static_cast<float>(yPos - mLastMousePos.y));
+		float yaw = XMConvertToRadians(mouseSense * static_cast<float>(xPos - mLastMousePos.x));
+		float pitch = XMConvertToRadians(mouseSense * static_cast<float>(yPos - mLastMousePos.y));
 
 		mPhi += pitch;
 		mTheta += yaw;
@@ -37,15 +37,7 @@ void D3DToy::OnMouseMove(int xPos, int yPos, bool updatePos)
 		//limits pitch angle
 		mPhi = mPhi > XM_PI / 2 ? XM_PI / 2 : mPhi;
 		mPhi = mPhi < -XM_PI / 2 ? -XM_PI / 2 : mPhi;
-
-		// sin* cos, cos, sin * sin?
-		// cos * cos, sin, cos * sin?
-		XMVECTOR position = XMVectorSet(mRadius * cosf(mPhi) * cosf(mTheta), mRadius * sinf(mPhi), -mRadius * cosf(mPhi) * sinf(mTheta), 1.0f);
-		XMVECTOR target = XMVectorZero();
-		XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-
-		XMMATRIX view = XMMatrixLookAtLH(position, target, up);
-		XMStoreFloat4x4(&mView, view);
+		//view matrix update in OnUpdate() pass constants.
 	}
 	//Keep tracking position, avoiding sudden movement.
 	mLastMousePos.x = xPos;
@@ -54,8 +46,9 @@ void D3DToy::OnMouseMove(int xPos, int yPos, bool updatePos)
 
 void D3DToy::OnZoom(short delta)
 {
-	XMMATRIX view = XMLoadFloat4x4(&mView);
-
+	mRadius -= delta * zoomSense;
+	mRadius = mRadius < 0.1f ? 0.1f : mRadius;
+	//view matrix update in OnUpdate() pass constants.
 }
 
 void D3DToy::OnInit()
@@ -97,7 +90,8 @@ void D3DToy::OnInit()
 	CreateRTVAndDSVDescriptorHeap();
 //Organize geometry upload to default heap
 //Essential info for render geometries
-	BuildGeometryAndRenderItems();//VBV and IBV creating in DrawRenderItems()
+	BuildGeometries();//VBV and IBV creating in DrawRenderItems()
+	//BuildSingleGroupGeometries();
 //Create Frame Reousrces and their Constant Buffer descriptor heap
 	CreateCBVDescriptorHeap();
 //Create Root signature
@@ -127,7 +121,7 @@ void D3DToy::OnUpdate()
 		WaitForSingleObject(eventHandle, INFINITE);
 		CloseHandle(eventHandle);
 	}
-	//Update obj constants 
+//Update obj constants 
 	for (auto& e : mRenderItems)
 	{
 		// Only update the cbuffer data if the constants have changed. 
@@ -157,13 +151,15 @@ void D3DToy::OnUpdate()
 	}
 
 	//Update pass constants
-	//XMVECTOR position = XMVectorSet(4.0f, 1.0f, 4.0f, 1.0f);
-	//XMVECTOR target = XMVectorZero();
-	//XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
+	// sin* cos, cos, sin * sin?
+	// cos * cos, sin, cos * sin?
+	XMVECTOR position = XMVectorSet(mRadius * cosf(mPhi) * cosf(mTheta), mRadius * sinf(mPhi), -mRadius * cosf(mPhi) * sinf(mTheta), 1.0f);
+	XMVECTOR target = XMVectorZero();
+	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 
-	//XMMATRIX view = XMMatrixLookAtLH(position, target, up);
-	//XMStoreFloat4x4(&mView, view);
-	XMMATRIX view = XMLoadFloat4x4(&mView);
+	XMMATRIX view = XMMatrixLookAtLH(position, target, up);
+	XMStoreFloat4x4(&mView, view);
+
 	XMMATRIX proj = XMLoadFloat4x4(&mProj);
 	XMMATRIX viewProj = XMMatrixMultiply(view, proj);
 
@@ -186,6 +182,7 @@ void D3DToy::OnUpdate()
 	mMainPassConst.totalTime = mTimer.CurrentTime();
 
 	mCurrentFrameRes->passCB->CopyData(0, mMainPassConst);
+
 }
 void D3DToy::OnResize()
 {
@@ -238,12 +235,8 @@ void D3DToy::OnRender()
 	mCommandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
 	//Set Root signature
 	mCommandList->SetGraphicsRootSignature(mRootSignature.Get());
-
-	int passCbvIndex = mPassCbvOffset + mCurrentFrameResIndex;
-	auto passCbvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(
-		mCBVHeap->GetGPUDescriptorHandleForHeapStart());
-	passCbvHandle.Offset(passCbvIndex, mCBVDescSize);
-	mCommandList->SetGraphicsRootDescriptorTable(1, passCbvHandle);
+	//using root descriptor instead of descriptor heap
+	mCommandList->SetGraphicsRootConstantBufferView(1, mCurrentFrameRes->passCB->Resource()->GetGPUVirtualAddress());
 	DrawRenderItems(mCommandList.Get(), mOpaqueRenderItems);
 
 	//mCommandList->IASetVertexBuffers(0, 1, &mGeometry->VertexBufferView());
@@ -472,10 +465,7 @@ void D3DToy::CreateRootSignature()
 	cbvTable0.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0); //Set baseShaderRegister 0 -> buffer0(b0)
 	slotRootParameter[0].InitAsDescriptorTable(1, &cbvTable0); //Num of descriptor range, descriptor range
 
-
-	CD3DX12_DESCRIPTOR_RANGE cbvTable1;
-	cbvTable1.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 1); //Set baseShaderRegister 1 -> buffer1(b1)
-	slotRootParameter[1].InitAsDescriptorTable(1, &cbvTable1);
+	slotRootParameter[1].InitAsConstantBufferView(1);
 
 	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(2, slotRootParameter, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT); //Num of parameter,
 
@@ -507,65 +497,31 @@ void D3DToy::CreateShadersAndInputLayout()
 		{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
 	};
 }
-void D3DToy::BuildGeometryAndRenderItems()
+void D3DToy::BuildGeometries()
 {
 	GeometryGenerator geoGen;
 	GeometryGenerator::MeshData box = geoGen.BuildBox(10.0f, 10.0f, 10.0f);
+	GeometryGenerator::MeshData grid = geoGen.BuildGrid(1000.0f, 1000.0f, 100, 100);
 
 	GeometryGenerator::MeshData objData;
-	geoGen.GeometryGenerator::ReadObjFileInOne("assets\\models\\Homework\\Ai.obj", objData);
+	geoGen.ReadObjFileInOne("assets\\models\\Homework\\Ai.obj", objData);
 
-	//vertex offsets
-	UINT boxVertexOffset = 0;
-	UINT modelVertexOffset = box.vertices.size(); //
-	//index offsets
-	UINT boxIndexOffset = 0;
-	UINT modelIndexOffset = box.indices.size(); //
-	
-	//Define submesh
-	SubmeshGeometry boxSubmesh;
-	boxSubmesh.indexCount = box.indices.size(); //Pay attention to index count
-	boxSubmesh.startIndexLocation = boxIndexOffset;
-	boxSubmesh.baseVertexLocation = boxVertexOffset;
-
-	SubmeshGeometry objSubmesh; //
-	objSubmesh.indexCount = objData.indices.size();
-	objSubmesh.startIndexLocation = modelIndexOffset;
-	objSubmesh.baseVertexLocation = modelVertexOffset;
-
-
-	std::vector<Vertex> vertices(box.vertices.size() + objData.vertices.size());
-	UINT k = 0;
-	for (size_t i = 0; i < box.vertices.size(); ++i, ++k)
-	{
-		vertices[k].Pos = box.vertices[i].position;
-		if (i % 2 == 0)
-		{
-			vertices[k].Color = XMFLOAT4(lightBlue);
-		}
-		else
-		{
-			vertices[k].Color = XMFLOAT4(lightGreen);
-		}
-	}
-
-	for (size_t i = 0; i < objData.vertices.size(); ++i, ++k) //
-	{
-		vertices[k].Pos = objData.vertices[i].position;
-		vertices[k].Color = XMFLOAT4(lightBlue);
-	}
-
-	const UINT64 vbStride = sizeof(Vertex);
-	const UINT64 vbByteSize = vertices.size() * sizeof(Vertex);
-
+	std::vector<Vertex> vertices;
 	std::vector<uint32_t> indices;
-	indices.insert(indices.end(), box.indices.begin(), box.indices.end());
-	indices.insert(indices.end(), objData.indices.begin(), objData.indices.end()); //
-
-	const UINT ibByteSize = indices.size() * sizeof(uint32_t);
-
 	mGeometry = std::make_unique<MeshGeometry>();
 	mGeometry->Name = "Geometires";
+
+	UINT indexOffset = 0, vertexOffset = 0; //adjust in BuildSingleGeometry()
+	mRenderItems.push_back(BuildSingleGeometry(box, mGeometry.get(), vertices, vertexOffset, indices, indexOffset, 0, D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST));
+	mRenderItems.push_back(BuildSingleGeometry(objData, mGeometry.get(), vertices, vertexOffset, indices, indexOffset, 1, D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST));
+	mRenderItems.push_back(BuildSingleGeometry(grid, mGeometry.get(), vertices, vertexOffset, indices, indexOffset, 2, D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST));
+	for (auto& e : mRenderItems)
+	{
+		mOpaqueRenderItems.push_back(e.get());
+	}
+	const UINT64 vbStride = sizeof(Vertex);
+	const UINT64 vbByteSize = vertices.size() * sizeof(Vertex);
+	const UINT ibByteSize = indices.size() * sizeof(uint32_t);
 
 	//Create resource on CPU
 	ThrowIfFailed(D3DCreateBlob(vbByteSize, &mGeometry->vertexBufferCPU));
@@ -581,40 +537,93 @@ void D3DToy::BuildGeometryAndRenderItems()
 	mGeometry->vertexByteStride = sizeof(Vertex);
 	mGeometry->indexFormat = DXGI_FORMAT_R32_UINT;
 	mGeometry->indexBufferByteSize = ibByteSize;
-	//Set submesh
-	mGeometry->drawArgs[box.name] = boxSubmesh;
-	mGeometry->drawArgs[objData.name] = objSubmesh; //
+}
+void D3DToy::BuildSingleGroupGeometries()
+{
+	GeometryGenerator geoGen;
+	std::vector<GeometryGenerator::MeshData> meshDataGroup;
+	GeometryGenerator::MeshData allInOne;
+	geoGen.ReadObjFile("assets\\models\\Homework\\Ai.obj", meshDataGroup);
+	//vertex offsets
+	UINT groupVertexOffset = 0;
+	//index offsets
+	UINT groupIndexOffset = 0;
 
-	//Build Render Items
-	auto boxRenderItem = std::make_unique<RenderItem>();
-	boxRenderItem->objCBIndex = 0;
-	boxRenderItem->geo = mGeometry.get();
-	boxRenderItem->primitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	boxRenderItem->indexCount = boxRenderItem->geo->drawArgs[box.name].indexCount;
-	boxRenderItem->startIndexLocation = boxRenderItem->geo->drawArgs[box.name].startIndexLocation;
-	boxRenderItem->baseVertexLocation = boxRenderItem->geo->drawArgs[box.name].baseVertexLocation;
-	mRenderItems.push_back(std::move(boxRenderItem));
-
-	auto objRenderItem = std::make_unique<RenderItem>(); //
-	objRenderItem->objCBIndex = 1;
-	objRenderItem->geo = mGeometry.get();
-
-	XMMATRIX initWorld = XMMatrixIdentity();
-	initWorld = XMMatrixMultiply(XMMatrixTranslation(0.0f, -100.0f, 0.0f), initWorld);
-	XMStoreFloat4x4(&objRenderItem->world, initWorld);
-
-	objRenderItem->primitiveType = D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
-	objRenderItem->indexCount = objRenderItem->geo->drawArgs[objData.name].indexCount;
-	objRenderItem->startIndexLocation = objRenderItem->geo->drawArgs[objData.name].startIndexLocation;
-	objRenderItem->baseVertexLocation = objRenderItem->geo->drawArgs[objData.name].baseVertexLocation;
-	mRenderItems.push_back(std::move(objRenderItem));
-
+	std::vector<Vertex> vertices;
+	std::vector<uint32_t> indices;
+	UINT k = 0;
+	mGeometry = std::make_unique<MeshGeometry>();
+	mGeometry->Name = "Geometires";
+	for (int i = 0; i < meshDataGroup.size(); ++i)
+	{
+		mRenderItems.push_back(BuildSingleGeometry(meshDataGroup[i], mGeometry.get(), vertices, groupVertexOffset, indices, groupIndexOffset, i, D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST));
+	}
 	for (auto& e : mRenderItems)
 	{
 		mOpaqueRenderItems.push_back(e.get());
 	}
-}
+	//Set necessary info
+	const UINT64 vbStride = sizeof(Vertex);
+	const UINT64 vbByteSize = vertices.size() * sizeof(Vertex);
+	const UINT ibByteSize = indices.size() * sizeof(uint32_t);
 
+	mGeometry->vertexBufferByteSize = vbByteSize;
+	mGeometry->vertexByteStride = sizeof(Vertex);
+	mGeometry->indexFormat = DXGI_FORMAT_R32_UINT;
+	mGeometry->indexBufferByteSize = ibByteSize;
+
+	//Create resource on CPU
+	ThrowIfFailed(D3DCreateBlob(vbByteSize, &mGeometry->vertexBufferCPU));
+	CopyMemory(mGeometry->vertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);
+	ThrowIfFailed(D3DCreateBlob(ibByteSize, &mGeometry->indexBufferCPU));
+	CopyMemory(mGeometry->indexBufferCPU->GetBufferPointer(), indices.data(), ibByteSize);
+
+	//Committed to default heap intermediately. IASetVertex/IndexBuffer indicates the interpting ways
+	CreateDefaultBuffer(mDevice.Get(), mCommandList.Get(), mGeometry->vertexBufferCPU->GetBufferPointer(), vbByteSize, mGeometry->vertexBufferGPU, mGeometry->vertexBufferUploader);
+	CreateDefaultBuffer(mDevice.Get(), mCommandList.Get(), mGeometry->indexBufferCPU->GetBufferPointer(), ibByteSize, mGeometry->indexBufferGPU, mGeometry->indexBufferUploader);
+}
+std::unique_ptr<D3DToy::RenderItem> D3DToy::BuildSingleGeometry(GeometryGenerator::MeshData& meshData, MeshGeometry* geometry, std::vector<Vertex>& vertices, UINT& vertexOffset, std::vector<uint32_t>& indices, UINT& indexOffset,
+	int objCBIndex, D3D12_PRIMITIVE_TOPOLOGY topology)
+{
+	SubmeshGeometry submesh;
+	submesh.indexCount = meshData.indices.size();
+	//indexOffset in buffer
+	submesh.startIndexLocation = indexOffset;
+	//vertexOffset in buffer
+	submesh.baseVertexLocation = vertexOffset;
+
+	for (size_t i = 0; i < meshData.vertices.size(); ++i) //
+	{
+		Vertex v;
+		v.Pos = meshData.vertices[i].position;
+		if (i % 2 == 0)
+		{
+			v.Color = XMFLOAT4(lightBlue);
+		}
+		else
+		{
+			v.Color = XMFLOAT4(lightGreen);
+		}
+		//v.Color = XMFLOAT4(lightBlue);
+		vertices.push_back(v);
+	}
+	indices.insert(indices.end(), meshData.indices.begin(), meshData.indices.end());
+
+	//Set submesh
+	geometry->drawArgs[meshData.name] = submesh;
+
+	auto renderItem = std::make_unique<RenderItem>();
+	renderItem->objCBIndex = objCBIndex;
+	renderItem->geo = geometry;
+	renderItem->primitiveType = topology;
+	renderItem->indexCount = renderItem->geo->drawArgs[meshData.name].indexCount;
+	renderItem->startIndexLocation = renderItem->geo->drawArgs[meshData.name].startIndexLocation;
+	renderItem->baseVertexLocation = renderItem->geo->drawArgs[meshData.name].baseVertexLocation;
+
+	indexOffset += meshData.indices.size();
+	vertexOffset += meshData.vertices.size();
+	return renderItem;
+}
 void D3DToy::CreatePipelineStateObject()
 {
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc;

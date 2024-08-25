@@ -253,6 +253,47 @@ GeometryGenerator::MeshData GeometryGenerator::BuildSphere(float radius, uint32_
 	}
 	return meshData;
 }
+GeometryGenerator::MeshData GeometryGenerator::BuildGrid(float width, float depth, uint32_t wSeg, uint32_t dSeg)
+{
+	GeometryGenerator::MeshData meshData;
+	meshData.name = "grid";
+	float stepW = width / wSeg;
+	float stepD = depth / dSeg;
+	float du = 1.0f / wSeg;
+	float dv = 1.0f / dSeg;
+
+	for (uint32_t i = 0; i <= wSeg; ++i)
+	{
+		float z = -0.5 * depth + i * stepD;
+		float tv = i * dv;
+		for (uint32_t j = 0; j <= dSeg; ++j)
+		{
+			float x = -0.5 * width + j * stepW;
+			float tu = j * du;
+			Vertex v;
+			v.position = DirectX::XMFLOAT3(x, 0.0f, z);
+			v.normal = DirectX::XMFLOAT3(0.0f, 1.0f, 0.0f);
+			v.tangentU = DirectX::XMFLOAT3(1.0f, 0.0f, 0.0f);
+			v.texCoordinate.x = tu;
+			v.texCoordinate.y = tv;
+			meshData.vertices.push_back(v);
+		}
+	}
+	for (uint32_t i = 0; i < wSeg; ++i)
+	{
+		for (uint32_t j = 0; j < dSeg; ++j)
+		{
+			meshData.indices.push_back(j + i * wSeg);
+			meshData.indices.push_back(j + (i + 1) * wSeg);
+			meshData.indices.push_back(j + 1 + (i + 1) * wSeg);
+
+			meshData.indices.push_back(j + i * wSeg);
+			meshData.indices.push_back(j + 1 + (i + 1) * wSeg);
+			meshData.indices.push_back(j + 1 + i * wSeg);
+		}
+	}
+	return meshData;
+}
 std::vector<std::string> SplitString(std::string& s, char separator)
 {
 	std::vector<std::string> subStrings;
@@ -282,16 +323,16 @@ void GeometryGenerator::ReadObjFile(std::string filename, std::vector<GeometryGe
 
 	MeshData currentMeshData;
 	bool first = true;
+
+	bool isGroup = false;
+	std::string groupName;
+
 	int currentVertexIndex = 0;
 	int v = 0, vt = 0, vn = 0;
 
 	std::vector<DirectX::XMFLOAT3> tempV;
 	std::vector<DirectX::XMFLOAT2> tempVt;
 	std::vector<DirectX::XMFLOAT3> tempVn;
-
-	tempV.push_back(DirectX::XMFLOAT3());
-	tempVt.push_back(DirectX::XMFLOAT2());
-	tempVn.push_back(DirectX::XMFLOAT3());
 
 	while (std::getline(objFile, line))
 	{
@@ -300,12 +341,18 @@ void GeometryGenerator::ReadObjFile(std::string filename, std::vector<GeometryGe
 		{
 			if (lineParts[0] == "g")
 			{
+				isGroup = true;
+				groupName = lineParts[1] != "group" ? lineParts[1] : lineParts[2];
+			}
+			if (lineParts[0] == "usemtl" && isGroup)
+			{
 				if (first)
 					first = false;
 				else
 					meshDataGroup.push_back(currentMeshData);
 				currentMeshData = MeshData();
-				currentMeshData.name = lineParts[1] != "group" ? lineParts[1] : lineParts[2];
+				currentMeshData.name = groupName;
+				isGroup = false;
 			}
 			if (lineParts[0] == "v")
 			{
@@ -338,24 +385,29 @@ void GeometryGenerator::ReadObjFile(std::string filename, std::vector<GeometryGe
 				for (int i = 1; i < lineParts.size(); ++i)
 				{
 					auto vertexInfo = SplitString(lineParts[i], '/');
-					DirectX::XMFLOAT3& position = tempV[std::stoi(vertexInfo[0])]; //v
+					int vertexIndex = std::stoi(vertexInfo[0]) - 1;
+					DirectX::XMFLOAT3& position = tempV[vertexIndex]; //v
 					//Jump over according to mark
 					if (position.x == D3D12_MAX_POSITION_VALUE)
 					{
 						currentMeshData.indices.push_back(position.z);
 						continue;
 					}
-					DirectX::XMFLOAT2& tex = tempVt[std::stoi(vertexInfo[1])]; //vt
-					DirectX::XMFLOAT3& normal = tempVn[std::stoi(vertexInfo[2])]; //vn
+					DirectX::XMFLOAT2& tex = tempVt[std::stoi(vertexInfo[1]) - 1]; //vt
+					DirectX::XMFLOAT3& normal = tempVn[std::stoi(vertexInfo[2]) - 1]; //vn
 					currentMeshData.vertices.push_back(Vertex(position, normal, DirectX::XMFLOAT3(), tex));
-					currentMeshData.indices.push_back(currentMeshData.vertices.size() - 1);
+
+					int indexInMesh = currentMeshData.vertices.size() - 1;
+					currentMeshData.indices.push_back(indexInMesh);
 					//Mark this vertex
 					position.x = D3D12_MAX_POSITION_VALUE;
-					position.z = std::stof(vertexInfo[0]);
+					position.z = indexInMesh;
 				}
 			}
 		}
 	}
+	meshDataGroup.push_back(currentMeshData); //last one
+
 	OutputDebugString(std::to_wstring(v).c_str());
 	OutputDebugString(std::to_wstring(vt).c_str());
 	OutputDebugString(std::to_wstring(vn).c_str());
@@ -416,7 +468,7 @@ void GeometryGenerator::ReadObjFileInOne(std::string filename, GeometryGenerator
 				for (int i = 1; i < lineParts.size(); ++i)
 				{
 					auto vertexInfo = SplitString(lineParts[i], '/');
-					int vertexIndex = std::stoi(vertexInfo[0]) - 1;
+					int vertexIndex = std::stoi(vertexInfo[0]) - 1; //index STARTS from 1 in obj
 					if (completionSet.find(vertexIndex) == completionSet.end())
 					{
 						Vertex& vertex = meshData.vertices[vertexIndex]; //v

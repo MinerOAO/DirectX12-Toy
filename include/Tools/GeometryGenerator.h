@@ -41,6 +41,7 @@ public:
 	void BuildCylinderCap(float bottomR, float topR, float height, uint32_t slice, uint32_t stack, MeshData& meshData);
 	MeshData BuildBox(float length, float width, float height);
 	MeshData BuildSphere(float radius, uint32_t slice, uint32_t stack);
+	MeshData BuildGrid(float width, float depth, uint32_t wSeg, uint32_t dSeg);
 	void ReadObjFile(std::string filename, std::vector<GeometryGenerator::MeshData>& storage);
 	void ReadObjFileInOne(std::string filename, GeometryGenerator::MeshData& storage);
 };
