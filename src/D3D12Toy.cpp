@@ -35,8 +35,8 @@ void D3DToy::OnMouseMove(int xPos, int yPos, bool updatePos)
 		mTheta += yaw;
 
 		//limits pitch angle
-		mPhi = mPhi > XM_PI / 2 ? XM_PI / 2 : mPhi;
-		mPhi = mPhi < -XM_PI / 2 ? -XM_PI / 2 : mPhi;
+		mPhi = mPhi > XM_PI / 2 ? (XM_PI / 2 - FLT_EPSILON) : mPhi;
+		mPhi = mPhi < -XM_PI / 2 ? (-XM_PI / 2 + FLT_EPSILON) : mPhi; //cosf flips around pi/2, due to float precision?
 		//view matrix update in OnUpdate() pass constants.
 	}
 	//Keep tracking position, avoiding sudden movement.
@@ -182,13 +182,11 @@ void D3DToy::OnUpdate()
 	mMainPassConst.totalTime = mTimer.CurrentTime();
 
 	mCurrentFrameRes->passCB->CopyData(0, mMainPassConst);
-
 }
 void D3DToy::OnResize()
 {
 	DXSample::OnResize();
-	//When resized, compute aspect ratio and projection matrix
-	
+	//When resized, compute projection matrix
 	XMMATRIX p = XMMatrixPerspectiveFovLH(mFOV, m_aspectRatio, nearZ, farZ);
 	XMStoreFloat4x4(&mProj, p);
 }
@@ -197,7 +195,8 @@ void D3DToy::OnRender()
 	//only reset when the associated command lists have finished execution on the GPU.
 	ThrowIfFailed(mCurrentFrameRes->cmdAllocator->Reset());
 	//command list can be reset after it has been added to the command queue 
-	ThrowIfFailed(mCommandList->Reset(mCurrentFrameRes->cmdAllocator.Get(), mPSO.Get()));
+	//set initial state(triangle) for next pass
+	ThrowIfFailed(mCommandList->Reset(mCurrentFrameRes->cmdAllocator.Get(), mPSOMap["triangle"].Get()));
 
 	//Set viewport, scissorRect
 	mViewport.TopLeftX = 0.0f;
@@ -238,6 +237,9 @@ void D3DToy::OnRender()
 	//using root descriptor instead of descriptor heap
 	mCommandList->SetGraphicsRootConstantBufferView(1, mCurrentFrameRes->passCB->Resource()->GetGPUVirtualAddress());
 	DrawRenderItems(mCommandList.Get(), mOpaqueRenderItems);
+	//Change pipelinestate
+	mCommandList->SetPipelineState(mPSOMap["line"].Get());
+	DrawRenderItems(mCommandList.Get(), mLineRenderItems);
 
 	//mCommandList->IASetVertexBuffers(0, 1, &mGeometry->VertexBufferView());
 	//mCommandList->IASetIndexBuffer(&mGeometry->IndexBufferView());
@@ -392,7 +394,7 @@ void D3DToy::CreateCBVDescriptorHeap()
 	{
 		mFrameResources.push_back(std::make_unique<FrameResource>(mDevice.Get(), 1, mRenderItems.size()));
 	}
-	UINT objCount = (UINT)mOpaqueRenderItems.size();
+	UINT objCount = (UINT)mRenderItems.size();//Changes from mOpaque to mRenderItems
 	mPassCbvOffset = objCount * numFrameResources;
 	//Constant Buffer descriptor heap
 	D3D12_DESCRIPTOR_HEAP_DESC cbvHeapDesc;
@@ -511,17 +513,31 @@ void D3DToy::BuildGeometries()
 	mGeometry = std::make_unique<MeshGeometry>();
 	mGeometry->Name = "Geometires";
 
+	int renderItemOffset = 0;
 	UINT indexOffset = 0, vertexOffset = 0; //adjust in BuildSingleGeometry()
 	mRenderItems.push_back(BuildSingleGeometry(box, mGeometry.get(), vertices, vertexOffset, indices, indexOffset, 0, D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST));
 	mRenderItems.push_back(BuildSingleGeometry(objData, mGeometry.get(), vertices, vertexOffset, indices, indexOffset, 1, D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST));
-	mRenderItems.push_back(BuildSingleGeometry(grid, mGeometry.get(), vertices, vertexOffset, indices, indexOffset, 2, D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST));
 	for (auto& e : mRenderItems)
 	{
 		mOpaqueRenderItems.push_back(e.get());
 	}
+	//Draw linelist objects
+	renderItemOffset += mRenderItems.size();
+	mRenderItems.push_back(BuildSingleGeometry(grid, mGeometry.get(), vertices, vertexOffset, indices, indexOffset, 2, D3D_PRIMITIVE_TOPOLOGY_LINELIST));
+	for (int i = renderItemOffset; i < mRenderItems.size(); ++i)
+	{
+		mLineRenderItems.push_back(mRenderItems[i].get());
+	}
+
 	const UINT64 vbStride = sizeof(Vertex);
 	const UINT64 vbByteSize = vertices.size() * sizeof(Vertex);
 	const UINT ibByteSize = indices.size() * sizeof(uint32_t);
+
+	//Set necessary info
+	mGeometry->vertexBufferByteSize = vbByteSize;
+	mGeometry->vertexByteStride = sizeof(Vertex);
+	mGeometry->indexFormat = DXGI_FORMAT_R32_UINT;
+	mGeometry->indexBufferByteSize = ibByteSize;
 
 	//Create resource on CPU
 	ThrowIfFailed(D3DCreateBlob(vbByteSize, &mGeometry->vertexBufferCPU));
@@ -532,11 +548,6 @@ void D3DToy::BuildGeometries()
 	//Committed to default heap intermediately. IASetVertex/IndexBuffer indicates the interpting ways
 	CreateDefaultBuffer(mDevice.Get(), mCommandList.Get(), mGeometry->vertexBufferCPU->GetBufferPointer(), vbByteSize, mGeometry->vertexBufferGPU, mGeometry->vertexBufferUploader);
 	CreateDefaultBuffer(mDevice.Get(), mCommandList.Get(), mGeometry->indexBufferCPU->GetBufferPointer(), ibByteSize, mGeometry->indexBufferGPU, mGeometry->indexBufferUploader);
-	//Set necessary info
-	mGeometry->vertexBufferByteSize = vbByteSize;
-	mGeometry->vertexByteStride = sizeof(Vertex);
-	mGeometry->indexFormat = DXGI_FORMAT_R32_UINT;
-	mGeometry->indexBufferByteSize = ibByteSize;
 }
 void D3DToy::BuildSingleGroupGeometries()
 {
@@ -644,7 +655,10 @@ void D3DToy::CreatePipelineStateObject()
 	psoDesc.SampleDesc.Quality = mMsaa ? (mMsaaQuality - 1) : 0;
 	psoDesc.DSVFormat = mDepthStencilBufferFormat;
 
-	ThrowIfFailed(mDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mPSO)));
+	ThrowIfFailed(mDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mPSOMap["triangle"])));
+
+	psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
+	ThrowIfFailed(mDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mPSOMap["line"])));
 }
 void D3DToy::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems)
 {
@@ -657,7 +671,7 @@ void D3DToy::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vect
 		cmdList->IASetPrimitiveTopology(ri->primitiveType);
 		// Offset to the CBV in the descriptor heap for this object and
 		// for this frame resource.
-		UINT cbvIndex = mCurrentFrameResIndex * (UINT)mOpaqueRenderItems.size() + ri->objCBIndex;
+		UINT cbvIndex = mCurrentFrameResIndex * (UINT)mRenderItems.size() + ri->objCBIndex; //Changes from mOpaque to mRender
 		auto cbvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(
 			mCBVHeap->GetGPUDescriptorHandleForHeapStart());
 		cbvHandle.Offset(cbvIndex, mCBVDescSize);

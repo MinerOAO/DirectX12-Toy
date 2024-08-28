@@ -10,11 +10,11 @@ class D3DToy : public DXSample
 public:
 	D3DToy(UINT width, UINT height, std::wstring name);
 	~D3DToy() override;
-	virtual void OnInit() override;
-	virtual void OnUpdate() override;
-	virtual void OnResize() override;
-	virtual void OnRender() override;
-	virtual void OnDestroy() override;
+	void OnInit() override;
+	void OnUpdate() override;
+	void OnResize() override;
+	void OnRender() override;
+	void OnDestroy() override;
 
 	void OnMouseMove(int xPos, int yPos, bool updatePos) override;
 	void OnZoom(short delta) override;
@@ -150,6 +150,7 @@ private:
 	std::vector<std::unique_ptr<RenderItem>> mRenderItems = {}; //All render items
 	std::vector<RenderItem*> mOpaqueRenderItems; //Divided by different PSO
 	std::vector<RenderItem*> mTransparentRenderItems;
+	std::vector<RenderItem*> mLineRenderItems;
 
 	//Upload (vertices/indices) to default heap using UploadBuffer
 	//std::unique_ptr<UploadBuffer<ObjectConstants>> mObjectCB;
@@ -168,7 +169,7 @@ private:
 	ComPtr<ID3DBlob> mPixelShader;
 	std::vector<D3D12_INPUT_ELEMENT_DESC> mInputLayout;
 
-	ComPtr<ID3D12PipelineState> mPSO;
+	std::unordered_map<std::string, ComPtr<ID3D12PipelineState>> mPSOMap;
 
 	UINT mRTVDescSize; //Render Target View Descriptor Size
 	UINT mDSVDescSize; //Depth / Stencil
