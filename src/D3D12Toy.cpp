@@ -543,7 +543,7 @@ void D3DToy::BuildGeometries()
 	}
 	//Draw linelist objects
 	renderItemOffset += mRenderItems.size();
-	mRenderItems.push_back(BuildSingleGeometry(grid, mGeometry.get(), vertices, vertexOffset, indices, indexOffset, 2, D3D_PRIMITIVE_TOPOLOGY_LINELIST));
+	mRenderItems.push_back(BuildSingleGeometry(grid, mGeometry.get(), vertices, vertexOffset, indices, indexOffset, 2, D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST));
 	for (int i = renderItemOffset; i < mRenderItems.size(); ++i)
 	{
 		mLineRenderItems.push_back(mRenderItems[i].get());
@@ -679,7 +679,8 @@ void D3DToy::CreatePipelineStateObject()
 	//Grid PSO
 	pixelShader = CompileShader(L"src\\Shaders\\GridPixelShader.hlsl", nullptr, "PS", "ps_5_0");
 	psoDesc.PS = { reinterpret_cast<BYTE*>(pixelShader->GetBufferPointer()), pixelShader->GetBufferSize() };
-	psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
+	psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
+	psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 	ThrowIfFailed(mDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mPSOMap["line"])));
 }
 void D3DToy::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems)

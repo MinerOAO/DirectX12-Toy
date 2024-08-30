@@ -292,15 +292,12 @@ GeometryGenerator::MeshData GeometryGenerator::BuildGrid(float width, float dept
 		{
 			meshData.indices.push_back(i * n + j);
 			meshData.indices.push_back(i * n + j + 1);
-
-			meshData.indices.push_back(i * n + j);
 			meshData.indices.push_back((i + 1) * n + j);
 
 			meshData.indices.push_back((i + 1) * n + j);
-			meshData.indices.push_back((i + 1) * n + j + 1);
-
-			meshData.indices.push_back((i + 1) * n + j + 1);
 			meshData.indices.push_back(i * n + j + 1);
+			meshData.indices.push_back((i + 1) * n + j + 1);
+
 		}
 	}
 	return meshData;
