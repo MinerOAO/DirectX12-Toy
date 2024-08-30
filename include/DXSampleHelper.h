@@ -25,9 +25,17 @@ const FLOAT lightGreen[4] = { 0.4f, 1.0f, 0.8f, 1.0f };
 struct Vertex
 {
     DirectX::XMFLOAT3 Pos;
-    DirectX::XMFLOAT4 Color;
+    DirectX::XMFLOAT3 Normal;
 };
-
+struct Light
+{
+    DirectX::XMFLOAT3 strength; // Light color
+    float falloffStart;     // point/spot light only
+    DirectX::XMFLOAT3 direction;// directional/spot light only
+    float falloffEnd;      // point/spot light only
+    DirectX::XMFLOAT3 position; // point/spot light only
+    float spotPower;      // spot light only
+};
 struct SubmeshGeometry
 {
     UINT indexCount = 0;

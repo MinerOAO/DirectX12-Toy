@@ -88,6 +88,8 @@ void D3DToy::OnInit()
 //Create RTV using SwapChain buffer and descriptor heap handle
 //Create Depth/Stencil buffer, DSV. Initialize DSV state
 	CreateRTVAndDSVDescriptorHeap();
+//Materials used for geometries
+	BuildMaterial();
 //Organize geometry upload to default heap
 //Essential info for render geometries
 	BuildGeometries();//VBV and IBV creating in DrawRenderItems()
@@ -96,9 +98,7 @@ void D3DToy::OnInit()
 	CreateCBVDescriptorHeap();
 //Create Root signature
 	CreateRootSignature();
-//Create Shader and Input layout
-	CreateShadersAndInputLayout();
-//Create PSO
+//Create Shaders, Input layout and PSO
 	CreatePipelineStateObject();
 //Execute the initialization commands
 	ThrowIfFailed(mCommandList->Close());
@@ -149,7 +149,16 @@ void D3DToy::OnUpdate()
 			e->numFramesDirty = numFrameResources - 1;
 		}
 	}
-
+//Update material constants
+	for (auto& e : mMaterialItems)
+	{
+		MaterialItem* matItem = e.second.get();
+		if (matItem->numFramesDirty > 0)
+		{
+			mCurrentFrameRes->materialCB->CopyData(matItem->matCBIndex, matItem->matConsts);
+			--matItem->numFramesDirty;
+		}
+	}
 	//Update pass constants
 	// sin* cos, cos, sin * sin?
 	// cos * cos, sin, cos * sin?
@@ -174,6 +183,8 @@ void D3DToy::OnUpdate()
 	XMStoreFloat4x4(&mMainPassConst.viewProj, XMMatrixTranspose(viewProj));
 	XMStoreFloat4x4(&mMainPassConst.inverseViewProj, XMMatrixTranspose(invViewProj));
 
+	XMStoreFloat3(&mMainPassConst.eyePosWorld, position);
+
 	mMainPassConst.RTVSize = XMFLOAT2(mWidth, mHeight);
 	mMainPassConst.invRTVSize = XMFLOAT2(1.0f / mWidth, 1.0f / mHeight);
 
@@ -182,6 +193,12 @@ void D3DToy::OnUpdate()
 	mMainPassConst.totalTime = mTimer.CurrentTime();
 
 	mCurrentFrameRes->passCB->CopyData(0, mMainPassConst);
+//Update light constants
+	mLights.ambientLight = XMFLOAT4(0.2f, 0.2f, 0.2f, 1.0f);
+	mLights.directionalLights[0].direction = XMFLOAT3(1.0f, 1.0f, 1.0f);
+	mLights.directionalLights[0].strength = XMFLOAT3(1.0f, 1.0f, 1.0f);
+
+	mCurrentFrameRes->lightCB->CopyData(0, mLights);
 }
 void D3DToy::OnResize()
 {
@@ -234,8 +251,9 @@ void D3DToy::OnRender()
 	mCommandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
 	//Set Root signature
 	mCommandList->SetGraphicsRootSignature(mRootSignature.Get());
-	//using root descriptor instead of descriptor heap
-	mCommandList->SetGraphicsRootConstantBufferView(1, mCurrentFrameRes->passCB->Resource()->GetGPUVirtualAddress());
+	//using root descriptor instead of descriptor heap for single object per pass
+	mCommandList->SetGraphicsRootConstantBufferView(2, mCurrentFrameRes->passCB->Resource()->GetGPUVirtualAddress());
+	mCommandList->SetGraphicsRootConstantBufferView(3, mCurrentFrameRes->lightCB->Resource()->GetGPUVirtualAddress());
 	DrawRenderItems(mCommandList.Get(), mOpaqueRenderItems);
 	//Change pipelinestate
 	mCommandList->SetPipelineState(mPSOMap["line"].Get());
@@ -395,15 +413,18 @@ void D3DToy::CreateCBVDescriptorHeap()
 		mFrameResources.push_back(std::make_unique<FrameResource>(mDevice.Get(), 1, mRenderItems.size()));
 	}
 	UINT objCount = (UINT)mRenderItems.size();//Changes from mOpaque to mRenderItems
-	mPassCbvOffset = objCount * numFrameResources;
+	UINT materialCount = (UINT)mMaterialItems.size();
+	mMaterialCbvOffset = objCount * numFrameResources;
 	//Constant Buffer descriptor heap
 	D3D12_DESCRIPTOR_HEAP_DESC cbvHeapDesc;
 	cbvHeapDesc.NodeMask = 0; // GPU ID?
-	cbvHeapDesc.NumDescriptors = numFrameResources * (objCount + 1);
+	cbvHeapDesc.NumDescriptors = numFrameResources * (objCount + materialCount);
 	cbvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	cbvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 
 	ThrowIfFailed(mDevice->CreateDescriptorHeap(&cbvHeapDesc, IID_PPV_ARGS(&mCBVHeap)));
+
+	//Below for Creating different CBVs according to offset
 
 	//Constant buffer view (to each single object)
 	for (int frameIndex = 0; frameIndex < numFrameResources; ++frameIndex)
@@ -424,32 +445,26 @@ void D3DToy::CreateCBVDescriptorHeap()
 			mDevice->CreateConstantBufferView(&cbvDesc, handle);
 		}
 	}
-	// Last three descriptors are the pass CBVs for each frame resource.
+	//CBV for materials.
 	for (int frameIndex = 0; frameIndex < numFrameResources; ++frameIndex)
 	{
-		// Pass buffer only stores one cbuffer per frame resource.
-		D3D12_GPU_VIRTUAL_ADDRESS cbAddress = mFrameResources[frameIndex]->passCB->Resource()->GetGPUVirtualAddress();
-		// Offset to the pass cbv in the descriptor heap.
-		int heapIndex = mPassCbvOffset + frameIndex; //Jump over all objCB
-		auto handle = CD3DX12_CPU_DESCRIPTOR_HANDLE(
-			mCBVHeap->GetCPUDescriptorHandleForHeapStart());
-		handle.Offset(heapIndex, mCBVDescSize);
-		D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc;
-		cbvDesc.BufferLocation = cbAddress;
-		cbvDesc.SizeInBytes = passCBByteSize;
-		mDevice->CreateConstantBufferView(&cbvDesc, handle);
-	}
-	////Constant buffer to store the constants of n object.
-	//int numOfElement = 1;
-	//mObjectCB = std::make_unique<UploadBuffer<ObjectConstants>>(mDevice.Get(), numOfElement, true);
-	////Constant buffer view (to each single object)
-	//D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc; //In RTV, we made the view desc nullptr.
-	//int cbvObjIdx = 0;
-	//UINT objByteSize = CalcConstBufferByteSizes(sizeof(ObjectConstants));
-	//cbvDesc.BufferLocation = mObjectCB->Resource()->GetGPUVirtualAddress() + objByteSize * cbvObjIdx;
-	//cbvDesc.SizeInBytes = objByteSize;
+		for (UINT matIndex = 0; matIndex < materialCount; ++matIndex)
+		{
+			D3D12_GPU_VIRTUAL_ADDRESS cbAddress = mFrameResources[frameIndex]->materialCB->Resource()->GetGPUVirtualAddress();
+			// Offset to the ith object constant buffer in the current buffer.
+			cbAddress += matIndex * matCBByteSize;
 
-	//mDevice->CreateConstantBufferView(&cbvDesc, mCBVHeap->GetCPUDescriptorHandleForHeapStart());
+			// Offset to the CBV in the descriptor heap.
+			int heapIndex = mMaterialCbvOffset + frameIndex * materialCount + matIndex;
+			auto handle = CD3DX12_CPU_DESCRIPTOR_HANDLE(
+				mCBVHeap->GetCPUDescriptorHandleForHeapStart());
+			handle.Offset(heapIndex, mCBVDescSize);
+			D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc;
+			cbvDesc.BufferLocation = cbAddress;
+			cbvDesc.SizeInBytes = matCBByteSize;
+			mDevice->CreateConstantBufferView(&cbvDesc, handle);
+		}
+	}
 }
 void D3DToy::CreateRootSignature()
 {
@@ -461,15 +476,20 @@ void D3DToy::CreateRootSignature()
 
 	// A root signature is an array of root parameters.
 	// Root parameter can be a table, root descriptor or root constants.
-	CD3DX12_ROOT_PARAMETER slotRootParameter[2];
+	CD3DX12_ROOT_PARAMETER slotRootParameter[4];
 	//Create a single descriptor table of CBVs
-	CD3DX12_DESCRIPTOR_RANGE cbvTable0;
+	CD3DX12_DESCRIPTOR_RANGE cbvTable0, cbvTableMaterial;
 	cbvTable0.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0); //Set baseShaderRegister 0 -> buffer0(b0)
 	slotRootParameter[0].InitAsDescriptorTable(1, &cbvTable0); //Num of descriptor range, descriptor range
 
-	slotRootParameter[1].InitAsConstantBufferView(1);
+	cbvTableMaterial.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 1);//buffer 1
+	slotRootParameter[1].InitAsDescriptorTable(1, &cbvTableMaterial);
 
-	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(2, slotRootParameter, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT); //Num of parameter,
+	slotRootParameter[2].InitAsConstantBufferView(2); //buffer 2
+
+	slotRootParameter[3].InitAsConstantBufferView(3); //buffer 3
+
+	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(4, slotRootParameter, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT); //Num of parameter,
 
 	// create a root signature with a single slot which points to a 
 	// descriptor range consisting of a single constant buffer.
@@ -488,22 +508,22 @@ void D3DToy::CreateRootSignature()
 		serializedRootSig->GetBufferSize(),
 		IID_PPV_ARGS(&mRootSignature)));
 }
-void D3DToy::CreateShadersAndInputLayout()
+void D3DToy::BuildMaterial()
 {
-	mVertexShader = CompileShader(L"src\\Shaders\\VertexShader.hlsl", nullptr, "VS", "vs_5_0");
-	mPixelShader = CompileShader(L"src\\Shaders\\PixelShader.hlsl", nullptr, "PS", "ps_5_0");
-	//INput element Desc
-	mInputLayout = {
-	// SemanticName, SemanticIndex, Format, InputSlot,  AlignedByteOffset, InputSlotClass(PER VERTEX / INSTANCE), InstanceDataStepRate
-		{ "POSITION", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
-	};
+	std::string matName = "default";
+	auto material = std::make_unique<MaterialItem>();
+	material->matCBIndex = 0;
+	material->name = matName;
+	material->matConsts.diffuseAlbedo = XMFLOAT4(lightBlue);
+	material->matConsts.fresnelR0 = XMFLOAT3(0.95f, 0.95f, 0.95f);
+	material->matConsts.shininess = 64;
+	mMaterialItems.emplace(matName, std::move(material));
 }
 void D3DToy::BuildGeometries()
 {
 	GeometryGenerator geoGen;
 	GeometryGenerator::MeshData box = geoGen.BuildBox(10.0f, 10.0f, 10.0f);
-	GeometryGenerator::MeshData grid = geoGen.BuildGrid(1000.0f, 1000.0f, 100, 100);
+	GeometryGenerator::MeshData grid = geoGen.BuildGrid(1000.0f, 1000.0f, 10, 10);
 
 	GeometryGenerator::MeshData objData;
 	geoGen.ReadObjFileInOne("assets\\models\\Homework\\Ai.obj", objData);
@@ -607,15 +627,7 @@ std::unique_ptr<D3DToy::RenderItem> D3DToy::BuildSingleGeometry(GeometryGenerato
 	{
 		Vertex v;
 		v.Pos = meshData.vertices[i].position;
-		if (i % 2 == 0)
-		{
-			v.Color = XMFLOAT4(lightBlue);
-		}
-		else
-		{
-			v.Color = XMFLOAT4(lightGreen);
-		}
-		//v.Color = XMFLOAT4(lightBlue);
+		v.Normal = meshData.vertices[i].normal;
 		vertices.push_back(v);
 	}
 	indices.insert(indices.end(), meshData.indices.begin(), meshData.indices.end());
@@ -631,19 +643,27 @@ std::unique_ptr<D3DToy::RenderItem> D3DToy::BuildSingleGeometry(GeometryGenerato
 	renderItem->startIndexLocation = renderItem->geo->drawArgs[meshData.name].startIndexLocation;
 	renderItem->baseVertexLocation = renderItem->geo->drawArgs[meshData.name].baseVertexLocation;
 
-	indexOffset += meshData.indices.size();
-	vertexOffset += meshData.vertices.size();
+	indexOffset += (UINT)meshData.indices.size();
+	vertexOffset += (UINT)meshData.vertices.size();
 	return renderItem;
 }
 void D3DToy::CreatePipelineStateObject()
 {
+	auto vertexShader = CompileShader(L"src\\Shaders\\DefaultShader.hlsl", nullptr, "VS", "vs_5_0");
+	auto pixelShader = CompileShader(L"src\\Shaders\\DefaultShader.hlsl", nullptr, "PS", "ps_5_0");
+	//INput element Desc
+	std::vector<D3D12_INPUT_ELEMENT_DESC> inputLayout = {
+		// SemanticName, SemanticIndex, Format, InputSlot,  AlignedByteOffset, InputSlotClass(PER VERTEX / INSTANCE), InstanceDataStepRate
+			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+			{ "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+	};
 	D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc;
 	ZeroMemory(&psoDesc, sizeof(D3D12_GRAPHICS_PIPELINE_STATE_DESC));
-	psoDesc.InputLayout = { mInputLayout.data(), (UINT)mInputLayout.size() };
+	psoDesc.InputLayout = { inputLayout.data(), (UINT)inputLayout.size() };
 	psoDesc.pRootSignature = mRootSignature.Get();
 	//Create shader desc
-	psoDesc.VS = { reinterpret_cast<BYTE*>(mVertexShader->GetBufferPointer()), mVertexShader->GetBufferSize() };
-	psoDesc.PS = { reinterpret_cast<BYTE*>(mPixelShader->GetBufferPointer()), mPixelShader->GetBufferSize() };
+	psoDesc.VS = { reinterpret_cast<BYTE*>(vertexShader->GetBufferPointer()), vertexShader->GetBufferSize() };
+	psoDesc.PS = { reinterpret_cast<BYTE*>(pixelShader->GetBufferPointer()), pixelShader->GetBufferSize() };
 	psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
 	psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 	psoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
@@ -654,9 +674,11 @@ void D3DToy::CreatePipelineStateObject()
 	psoDesc.SampleDesc.Count = mMsaa ? mMsaaSampleCount : 1;
 	psoDesc.SampleDesc.Quality = mMsaa ? (mMsaaQuality - 1) : 0;
 	psoDesc.DSVFormat = mDepthStencilBufferFormat;
-
 	ThrowIfFailed(mDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mPSOMap["triangle"])));
 
+	//Grid PSO
+	pixelShader = CompileShader(L"src\\Shaders\\GridPixelShader.hlsl", nullptr, "PS", "ps_5_0");
+	psoDesc.PS = { reinterpret_cast<BYTE*>(pixelShader->GetBufferPointer()), pixelShader->GetBufferSize() };
 	psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
 	ThrowIfFailed(mDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mPSOMap["line"])));
 }
@@ -675,9 +697,17 @@ void D3DToy::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vect
 		auto cbvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(
 			mCBVHeap->GetGPUDescriptorHandleForHeapStart());
 		cbvHandle.Offset(cbvIndex, mCBVDescSize);
-		cmdList->SetGraphicsRootDescriptorTable(0, cbvHandle);
+		cmdList->SetGraphicsRootDescriptorTable(0, cbvHandle);//CB
+
+		//Should follow the sequency in CreateCBV?
+		cbvIndex = mMaterialCbvOffset + mCurrentFrameResIndex;
+		cbvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(
+			mCBVHeap->GetGPUDescriptorHandleForHeapStart());
+		cbvHandle.Offset(cbvIndex, mCBVDescSize);
+		cmdList->SetGraphicsRootDescriptorTable(1, cbvHandle);
+
 		cmdList->DrawIndexedInstanced(ri->indexCount, 1,
-			ri->startIndexLocation, ri->baseVertexLocation, 0);
+			ri->startIndexLocation, ri->baseVertexLocation, 0);//VB IB
 	}
 }
 void D3DToy::CheckFeatureSupport()

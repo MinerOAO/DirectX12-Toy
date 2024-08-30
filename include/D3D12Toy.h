@@ -2,6 +2,10 @@
 #include "DXSample.h"
 #include "Tools/GeometryGenerator.h"
 
+constexpr auto MAX_DIRECT_LIGHT_SOURCE_NUM = 8;
+constexpr auto MAX_POINT_LIGHT_SOURCE_NUM = 8;
+constexpr auto MAX_SPOT_LIGHT_SOURCE_NUM = 4;
+
 using namespace DirectX;
 using Microsoft::WRL::ComPtr;
 
@@ -26,7 +30,7 @@ protected:
 	static const UINT mBufferCount = 2;
 	//UINT mCurrentBackBuffer = 0;
 
-	bool mMsaa = false;
+	bool mMsaa = false; //problematic, MSAA is supported for DXGI_SWAP_EFFECT_DISCARD, not FLIP_DISCARD
 	UINT mMsaaSampleCount = 4;
 	UINT mMsaaQuality = 2;
 
@@ -52,7 +56,6 @@ private:
 		XMFLOAT4X4 world;
 	};
 	const UINT objCBByteSize = CalcConstBufferByteSizes(sizeof(ObjectConstants));
-
 	// Constant data per pass
 	struct PassConstants
 	{
@@ -63,14 +66,33 @@ private:
 		XMFLOAT4X4 viewProj;
 		XMFLOAT4X4 inverseViewProj;
 		
+		XMFLOAT3 eyePosWorld;
+		float totalTime;
+
 		XMFLOAT2 RTVSize;
 		XMFLOAT2 invRTVSize;
 		float nearZ;
 		float farZ;
-		float totalTime;
 	};
 	const UINT passCBByteSize = CalcConstBufferByteSizes(sizeof(PassConstants));
-
+	//One constant one material
+	struct MaterialConstants
+	{
+		DirectX::XMFLOAT4 diffuseAlbedo = { 1.0f, 1.0f, 1.0f, 1.0f };
+		DirectX::XMFLOAT3 fresnelR0 = { 0.01f, 0.01f, 0.01f };
+		float shininess = 0.25f;
+		// Used in the chapter on texture mapping.
+		DirectX::XMFLOAT4X4 matTransform;
+	};
+	const UINT matCBByteSize = CalcConstBufferByteSizes(sizeof(MaterialConstants));
+	struct LightConstants
+	{
+		XMFLOAT4 ambientLight;
+		Light directionalLights[MAX_DIRECT_LIGHT_SOURCE_NUM];
+		Light pointLights[MAX_POINT_LIGHT_SOURCE_NUM];
+		Light spotLights[MAX_SPOT_LIGHT_SOURCE_NUM];
+	};
+	const UINT lightCBByteSize = CalcConstBufferByteSizes(sizeof(LightConstants));
 	//Constant buffer info used for different levels of CBV update frequency.
 	struct FrameResource {
 	public:
@@ -78,7 +100,9 @@ private:
 		{
 			ThrowIfFailed(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&cmdAllocator)));
 			objCB = std::make_unique<UploadBuffer<ObjectConstants>>(device, objectCount, true);
+			materialCB = std::make_unique<UploadBuffer<MaterialConstants>>(device, 2, true);
 			passCB = std::make_unique<UploadBuffer<PassConstants>>(device, passCount, true);
+			lightCB = std::make_unique<UploadBuffer<LightConstants>>(device, passCount, true);
 		}
 		FrameResource(const FrameResource& rhs) = delete;
 		FrameResource& operator=(const FrameResource& rhs) = delete;
@@ -92,6 +116,10 @@ private:
 		std::unique_ptr<UploadBuffer<ObjectConstants>> objCB = nullptr;
 		std::unique_ptr<UploadBuffer<PassConstants>> passCB = nullptr;
 
+		//Material constant buffer
+		std::unique_ptr<UploadBuffer<MaterialConstants>> materialCB = nullptr;
+		//Light constant buffer
+		std::unique_ptr<UploadBuffer<LightConstants>> lightCB = nullptr;
 		//Dynamic vertex buffer
 		//std::unique_ptr<UploadBuffer<Vertex>> waveVB = nullptr;
 		
@@ -119,6 +147,7 @@ private:
 		int numFramesDirty = numFrameResources;
 		// Index into GPU constant buffer corresponding to the ObjectCB for this render item.
 		UINT objCBIndex = -1;
+		std::string materialName = "";
 		// Geometry associated with this render-item. Multiple render-items can share the same geometry.
 		MeshGeometry* geo = nullptr;
 		// Primitive topology.
@@ -128,7 +157,25 @@ private:
 		UINT startIndexLocation = 0;
 		int baseVertexLocation = 0;
 	};
+	// State records for materials in constant buffer
+	struct MaterialItem
+	{
+		MaterialItem()
+		{
+			XMStoreFloat4x4(&matConsts.matTransform, XMMatrixIdentity());
+		}
+		//name for lookup
+		std::string name;
+		//Index in CB 
+		int matCBIndex = -1;
+		//Index in SRV heap for diffuse texture
+		int diffuseSRVHeapIndex = -1;
+		//Dirty flag
+		int numFramesDirty = numFrameResources;
 
+		//Material Data
+		MaterialConstants matConsts;
+	};
 	ComPtr<IDXGIFactory4> mFactory; //Using DXGIFactory4 for WARP
 	ComPtr<IDXGIAdapter> mAdapter; //GPU adapter
 	ComPtr<ID3D12Device> mDevice; //GPU
@@ -146,28 +193,23 @@ private:
 	ComPtr<ID3D12Resource> mDepthStencilBuffer;
 	
 	std::unique_ptr<MeshGeometry> mGeometry;
+	std::unordered_map<std::string, std::unique_ptr<MaterialItem>> mMaterialItems;
 
 	std::vector<std::unique_ptr<RenderItem>> mRenderItems = {}; //All render items
 	std::vector<RenderItem*> mOpaqueRenderItems; //Divided by different PSO
 	std::vector<RenderItem*> mTransparentRenderItems;
 	std::vector<RenderItem*> mLineRenderItems;
 
-	//Upload (vertices/indices) to default heap using UploadBuffer
-	//std::unique_ptr<UploadBuffer<ObjectConstants>> mObjectCB;
-
-	std::vector<std::unique_ptr<FrameResource>> mFrameResources;
+	std::vector<std::unique_ptr<FrameResource>> mFrameResources;//Constant buffer
 	FrameResource* mCurrentFrameRes = nullptr;
 	int mCurrentFrameResIndex = 0;
+	int mMaterialCbvOffset = 0;
 
-	int mPassCbvOffset = 0;
 	PassConstants mMainPassConst;
+	LightConstants mLights;
 
 	ComPtr<ID3D12DescriptorHeap> mCBVHeap; //CBV for CPU and GPU commmu
 	ComPtr<ID3D12RootSignature> mRootSignature;
-
-	ComPtr<ID3DBlob> mVertexShader; //bytecode
-	ComPtr<ID3DBlob> mPixelShader;
-	std::vector<D3D12_INPUT_ELEMENT_DESC> mInputLayout;
 
 	std::unordered_map<std::string, ComPtr<ID3D12PipelineState>> mPSOMap;
 
@@ -188,6 +230,7 @@ private:
 
 	void CreateRTVAndDSVDescriptorHeap();
 
+	void BuildMaterial();
 	//Organize geometry, upload to default heap
 	std::unique_ptr<RenderItem> BuildSingleGeometry(GeometryGenerator::MeshData& meshData, MeshGeometry* geometry, std::vector<Vertex>& vertices, UINT& vertexOffset, std::vector<uint32_t>& indices, UINT& indexOffset,
 		int objCBIndex, D3D12_PRIMITIVE_TOPOLOGY topology);
@@ -198,8 +241,6 @@ private:
 	void CreateCBVDescriptorHeap();
 
 	void CreateRootSignature();
-
-	void CreateShadersAndInputLayout();
 
 	void CreatePipelineStateObject(); 
 

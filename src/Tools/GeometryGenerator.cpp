@@ -137,35 +137,35 @@ GeometryGenerator::MeshData GeometryGenerator::BuildBox(float length, float widt
 	auto& v = meshData.vertices;
 
 	// Fill in the front face vertex data.
-	v.push_back(Vertex(-l2, +h2, -w2, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f));
-	v.push_back(Vertex(-l2, -h2, -w2, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f));
-	v.push_back(Vertex(+l2, -h2, -w2, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f));
-	v.push_back(Vertex(+l2, +h2, -w2, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f));
+	v.push_back(Vertex(-l2, +h2, -w2, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f));
+	v.push_back(Vertex(-l2, -h2, -w2, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f));
+	v.push_back(Vertex(+l2, -h2, -w2, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f));
+	v.push_back(Vertex(+l2, +h2, -w2, 0.0f, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f));
 	//back			
-	v.push_back(Vertex(+l2, +h2, +w2, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f));
-	v.push_back(Vertex(+l2, -h2, +w2, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f));
-	v.push_back(Vertex(-l2, -h2, +w2, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f));
-	v.push_back(Vertex(-l2, +h2, +w2, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f));
+	v.push_back(Vertex(+l2, +h2, +w2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f));
+	v.push_back(Vertex(+l2, -h2, +w2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f));
+	v.push_back(Vertex(-l2, -h2, +w2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f));
+	v.push_back(Vertex(-l2, +h2, +w2, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f));
 	//top		
-	v.push_back(Vertex(-l2, +h2, +w2, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f));
-	v.push_back(Vertex(-l2, +h2, -w2, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f));
-	v.push_back(Vertex(+l2, +h2, -w2, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f));
-	v.push_back(Vertex(+l2, +h2, +w2, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f));
+	v.push_back(Vertex(-l2, +h2, +w2, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f));
+	v.push_back(Vertex(-l2, +h2, -w2, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f));
+	v.push_back(Vertex(+l2, +h2, -w2, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f));
+	v.push_back(Vertex(+l2, +h2, +w2, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f));
 	//Bottom
-	v.push_back(Vertex(-l2, -h2, -w2, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f));
-	v.push_back(Vertex(-l2, -h2, +w2, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f));
-	v.push_back(Vertex(+l2, -h2, +w2, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f));
-	v.push_back(Vertex(+l2, -h2, -w2, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f));
+	v.push_back(Vertex(-l2, -h2, -w2, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f));
+	v.push_back(Vertex(-l2, -h2, +w2, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f));
+	v.push_back(Vertex(+l2, -h2, +w2, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f));
+	v.push_back(Vertex(+l2, -h2, -w2, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f));
 	//Left
-	v.push_back(Vertex(-l2, +h2, +w2, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f));
-	v.push_back(Vertex(-l2, -h2, +w2, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f));
-	v.push_back(Vertex(-l2, -h2, -w2, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f));
-	v.push_back(Vertex(-l2, +h2, -w2, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f));
+	v.push_back(Vertex(-l2, +h2, +w2, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f));
+	v.push_back(Vertex(-l2, -h2, +w2, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f));
+	v.push_back(Vertex(-l2, -h2, -w2, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f));
+	v.push_back(Vertex(-l2, +h2, -w2, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f));
 	//Right
-	v.push_back(Vertex(+l2, +h2, -w2, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f));
-	v.push_back(Vertex(+l2, -h2, -w2, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f));
-	v.push_back(Vertex(+l2, -h2, +w2, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f));
-	v.push_back(Vertex(+l2, +h2, +w2, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f));
+	v.push_back(Vertex(+l2, +h2, -w2, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f));
+	v.push_back(Vertex(+l2, -h2, -w2, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f));
+	v.push_back(Vertex(+l2, -h2, +w2, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f));
+	v.push_back(Vertex(+l2, +h2, +w2, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f));
 
 	//indices
 	for (uint32_t i = 0; i < 24; i+=4)
@@ -253,43 +253,54 @@ GeometryGenerator::MeshData GeometryGenerator::BuildSphere(float radius, uint32_
 	}
 	return meshData;
 }
-GeometryGenerator::MeshData GeometryGenerator::BuildGrid(float width, float depth, uint32_t wSeg, uint32_t dSeg)
+GeometryGenerator::MeshData GeometryGenerator::BuildGrid(float width, float depth, uint32_t m, uint32_t n)
 {
 	GeometryGenerator::MeshData meshData;
 	meshData.name = "grid";
-	float stepW = width / wSeg;
-	float stepD = depth / dSeg;
-	float du = 1.0f / wSeg;
-	float dv = 1.0f / dSeg;
+	uint32_t vertexCount = m * n;
+	uint32_t faceCount = (m - 1) * (n - 1) * 2;
+	float halfWidth = 0.5f * width;
+	float halfDepth = 0.5f * depth;
+	float dx = width / (n - 1);
 
-	for (uint32_t i = 0; i <= wSeg; ++i)
+	float dz = depth / (m - 1);
+	float du = 1.0f / (n - 1);
+	float dv = 1.0f / (m - 1);
+
+	for (uint32_t i = 0; i < m; ++i)
 	{
-		float z = -0.5 * depth + i * stepD;
-		float tv = i * dv;
-		for (uint32_t j = 0; j <= dSeg; ++j)
+		float z = halfDepth - i * dz;
+		for (uint32_t j = 0; j < n; ++j)
 		{
-			float x = -0.5 * width + j * stepW;
-			float tu = j * du;
+			float x = -halfWidth + j * dx;
 			Vertex v;
 			v.position = DirectX::XMFLOAT3(x, 0.0f, z);
 			v.normal = DirectX::XMFLOAT3(0.0f, 1.0f, 0.0f);
 			v.tangentU = DirectX::XMFLOAT3(1.0f, 0.0f, 0.0f);
-			v.texCoordinate.x = tu;
-			v.texCoordinate.y = tv;
+			// Stretch texture over grid.
+			v.texCoordinate.x = j * du;
+			v.texCoordinate.y = i * dv;
 			meshData.vertices.push_back(v);
 		}
 	}
-	for (uint32_t i = 0; i < wSeg; ++i)
-	{
-		for (uint32_t j = 0; j < dSeg; ++j)
-		{
-			meshData.indices.push_back(j + i * wSeg);
-			meshData.indices.push_back(j + (i + 1) * wSeg);
-			meshData.indices.push_back(j + 1 + (i + 1) * wSeg);
 
-			meshData.indices.push_back(j + i * wSeg);
-			meshData.indices.push_back(j + 1 + (i + 1) * wSeg);
-			meshData.indices.push_back(j + 1 + i * wSeg);
+	// 对于线框绘制，索引缓冲区需要明确定义每条边。与三角形面不同，线框需要显式定义每条边
+	//Define line list instead of trangle lists
+	for (uint32_t i = 0; i < m - 1; ++i)
+	{
+		for (uint32_t j = 0; j < n - 1; ++j)
+		{
+			meshData.indices.push_back(i * n + j);
+			meshData.indices.push_back(i * n + j + 1);
+
+			meshData.indices.push_back(i * n + j);
+			meshData.indices.push_back((i + 1) * n + j);
+
+			meshData.indices.push_back((i + 1) * n + j);
+			meshData.indices.push_back((i + 1) * n + j + 1);
+
+			meshData.indices.push_back((i + 1) * n + j + 1);
+			meshData.indices.push_back(i * n + j + 1);
 		}
 	}
 	return meshData;
