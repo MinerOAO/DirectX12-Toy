@@ -48,8 +48,16 @@ float4 ComputeLighting(Material m, float3 pos, float3 normal, float3 toEye, floa
         //lightVec -> point to light source
         float3 lightVec = -directionalLights[i].direction;
         //Lambert cosine law
-        float3 lightStrength = pointLights[i].strength * max(dot(lightVec, normal), 0.0f);
-        result += BlinnPhong(lightStrength, lightVec, normal, toEye, m);;
+        float lightStrength = max(dot(lightVec, normal), 0.0f);
+        if (lightStrength < 0.1f)
+            lightStrength *= 0.0f;
+        if (lightStrength > 0.9f)
+            lightStrength *= 1.0f;
+        if (lightStrength < 0.5f)
+            lightStrength *= 0.3f;
+        else
+            lightStrength *= 0.7f;
+        result += BlinnPhong(pointLights[i].strength * lightStrength, lightVec, normal, toEye, m);;
     }
     for (i = 0; i < MAX_POINT_LIGHT_SOURCE_NUM; ++i)
     {
@@ -59,10 +67,19 @@ float4 ComputeLighting(Material m, float3 pos, float3 normal, float3 toEye, floa
             continue;
         lightVec = normalize(lightVec);
         //Lambert cosine law
-        float3 lightStrength = pointLights[i].strength * max(dot(lightVec, normal), 0.0f);
+        float lightStrength = max(dot(lightVec, normal), 0.0f);
         //Attenuation
         lightStrength *= Attenuation(pointLights[i].falloffStart, pointLights[i].falloffEnd, distance);
-        result += BlinnPhong(lightStrength, lightVec, normal, toEye, m);
+        if (lightStrength < 0.1f)
+            lightStrength *= 0.0f;
+        if (lightStrength > 0.9f)
+            lightStrength *= 1.0f;
+        if (lightStrength < 0.5f)
+            lightStrength *= 0.5f;
+        else
+            lightStrength *= 0.7f;
+
+        result += BlinnPhong(pointLights[i].strength * lightStrength, lightVec, normal, toEye, m);
     }
     for (i = 0; i < MAX_SPOT_LIGHT_SOURCE_NUM; ++i)
     {
@@ -72,14 +89,22 @@ float4 ComputeLighting(Material m, float3 pos, float3 normal, float3 toEye, floa
             continue;
         lightVec = normalize(lightVec);
         //Lambert cosine law
-        float3 lightStrength = spotLights[i].strength * max(dot(lightVec, normal), 0.0f);
+        float lightStrength = max(dot(lightVec, normal), 0.0f);
         //Attenuation
         lightStrength *= Attenuation(spotLights[i].falloffStart, spotLights[i].falloffEnd, distance);
         //Spot
-        float spotFactor = pow(max(dot(-lightVec, spotLights[i].direction), 0.0f), spotLights[i].spotPower);
-        lightStrength *= spotFactor;
+        lightStrength *= pow(max(dot(-lightVec, spotLights[i].direction), 0.0f), spotLights[i].spotPower);
         
-        result += BlinnPhong(lightStrength, lightVec, normal, toEye, m);
+        if (lightStrength < 0.1f)
+            lightStrength *= 0.0f;
+        if (lightStrength > 0.9f)
+            lightStrength *= 1.0f;
+        if (lightStrength < 0.5f)
+            lightStrength *= 0.3f;
+        else
+            lightStrength *= 0.7f;
+        
+        result += BlinnPhong(spotLights[i].strength * lightStrength, lightVec, normal, toEye, m);
     }
     return float4(result, 0.0f);
 }

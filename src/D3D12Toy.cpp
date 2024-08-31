@@ -89,12 +89,12 @@ void D3DToy::OnInit()
 //Create Depth/Stencil buffer, DSV. Initialize DSV state
 	CreateRTVAndDSVDescriptorHeap();
 //Materials used for geometries
-	BuildMaterial();
+	BuildLightsAndMaterial();
 //Organize geometry upload to default heap
 //Essential info for render geometries
 	BuildGeometries();//VBV and IBV creating in DrawRenderItems()
 	//BuildSingleGroupGeometries();
-//Create Frame Reousrces and their Constant Buffer descriptor heap
+//Create Frame Reousrces and their Constant Buffer descriptor heap. CB num depends on Per-obj constants(mat, geometry)
 	CreateCBVDescriptorHeap();
 //Create Root signature
 	CreateRootSignature();
@@ -141,7 +141,7 @@ void D3DToy::OnUpdate()
 			ObjectConstants objConst;
 			XMMATRIX world = XMMatrixIdentity();
 			XMMATRIX rotation = XMMatrixRotationY(mTimer.CurrentTime());
-			XMMATRIX trans = XMMatrixTranslation(mRadius * cos(2 * mTimer.CurrentTime()), 0.0f, mRadius * sin(2 * mTimer.CurrentTime()));
+			XMMATRIX trans = XMMatrixTranslation(200 * cos(2 * mTimer.CurrentTime()), 100.0f, 200 * sin(2 * mTimer.CurrentTime()));
 			world = XMMatrixMultiply(trans, world);
 			world = XMMatrixMultiply(rotation, world);
 			XMStoreFloat4x4(&objConst.world, XMMatrixTranspose(world));
@@ -159,7 +159,7 @@ void D3DToy::OnUpdate()
 			--matItem->numFramesDirty;
 		}
 	}
-	//Update pass constants
+	//Update pass constants (pass, lights)
 	// sin* cos, cos, sin * sin?
 	// cos * cos, sin, cos * sin?
 	XMVECTOR position = XMVectorSet(mRadius * cosf(mPhi) * cosf(mTheta), mRadius * sinf(mPhi), -mRadius * cosf(mPhi) * sinf(mTheta), 1.0f);
@@ -194,10 +194,7 @@ void D3DToy::OnUpdate()
 
 	mCurrentFrameRes->passCB->CopyData(0, mMainPassConst);
 //Update light constants
-	mLights.ambientLight = XMFLOAT4(0.2f, 0.2f, 0.2f, 1.0f);
-	mLights.directionalLights[0].direction = XMFLOAT3(1.0f, 1.0f, 1.0f);
-	mLights.directionalLights[0].strength = XMFLOAT3(1.0f, 1.0f, 1.0f);
-
+	mLights.pointLights[0].position = XMFLOAT3(200 * cos(2 * mTimer.CurrentTime()), 100.0f, 200 * sin(2 * mTimer.CurrentTime()));//Same as the cube
 	mCurrentFrameRes->lightCB->CopyData(0, mLights);
 }
 void D3DToy::OnResize()
@@ -240,7 +237,7 @@ void D3DToy::OnRender()
 		mRTVDescSize // byte size of descriptor
 	);
 	CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(mDSVHeap->GetCPUDescriptorHandleForHeapStart());
-	mCommandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
+	mCommandList->ClearRenderTargetView(rtvHandle, grey, 0, nullptr);
 	mCommandList->ClearDepthStencilView(dsvHandle, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, 1.0f, 0, 0, nullptr);
 
 	//Specify the render buffer
@@ -257,7 +254,7 @@ void D3DToy::OnRender()
 	DrawRenderItems(mCommandList.Get(), mOpaqueRenderItems);
 	//Change pipelinestate
 	mCommandList->SetPipelineState(mPSOMap["line"].Get());
-	DrawRenderItems(mCommandList.Get(), mLineRenderItems);
+	DrawRenderItems(mCommandList.Get(), mWireFrameRenderItems);
 
 	//mCommandList->IASetVertexBuffers(0, 1, &mGeometry->VertexBufferView());
 	//mCommandList->IASetIndexBuffer(&mGeometry->IndexBufferView());
@@ -305,7 +302,7 @@ void D3DToy::CreateSwapChain()
 	swapChainDesc.SampleDesc.Quality = mMsaa ? (mMsaaQuality - 1) : 0;
 	swapChainDesc.Windowed = mWindowd;
 	swapChainDesc.OutputWindow = Win32Application::GetHwnd();
-	swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
+	swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;//DXGI_SWAP_EFFECT_DISCARD?
 	swapChainDesc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH; // when full-screen, display mode will be the one best matches the current application window dimensions
 	
 	auto& bufDesc = swapChainDesc.BufferDesc;
@@ -410,7 +407,7 @@ void D3DToy::CreateCBVDescriptorHeap()
 {
 	for (int i = 0; i < numFrameResources; ++i)
 	{
-		mFrameResources.push_back(std::make_unique<FrameResource>(mDevice.Get(), 1, mRenderItems.size()));
+		mFrameResources.push_back(std::make_unique<FrameResource>(mDevice.Get(), 1, mRenderItems.size(), mMaterialItems.size()));
 	}
 	UINT objCount = (UINT)mRenderItems.size();//Changes from mOpaque to mRenderItems
 	UINT materialCount = (UINT)mMaterialItems.size();
@@ -508,16 +505,22 @@ void D3DToy::CreateRootSignature()
 		serializedRootSig->GetBufferSize(),
 		IID_PPV_ARGS(&mRootSignature)));
 }
-void D3DToy::BuildMaterial()
+void D3DToy::BuildLightsAndMaterial()
 {
 	std::string matName = "default";
 	auto material = std::make_unique<MaterialItem>();
 	material->matCBIndex = 0;
 	material->name = matName;
 	material->matConsts.diffuseAlbedo = XMFLOAT4(lightBlue);
-	material->matConsts.fresnelR0 = XMFLOAT3(0.95f, 0.95f, 0.95f);
-	material->matConsts.shininess = 64;
+	material->matConsts.fresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
+	material->matConsts.shininess = 16; //greater smoother, 256 512
 	mMaterialItems.emplace(matName, std::move(material));
+
+	mLights.ambientLight = XMFLOAT4(0.2f, 0.2f, 0.2f, 1.0f);
+	mLights.pointLights[0].position = XMFLOAT3(200 * cos(2 * mTimer.CurrentTime()), 100.0f, 200 * sin(2 * mTimer.CurrentTime()));//Same as the cube
+	mLights.pointLights[0].falloffStart = 300.0f;
+	mLights.pointLights[0].falloffEnd = 1000.0f;
+	mLights.pointLights[0].strength = XMFLOAT3(1.0f, 1.0f, 1.0f);
 }
 void D3DToy::BuildGeometries()
 {
@@ -530,23 +533,23 @@ void D3DToy::BuildGeometries()
 
 	std::vector<Vertex> vertices;
 	std::vector<uint32_t> indices;
-	mGeometry = std::make_unique<MeshGeometry>();
-	mGeometry->Name = "Geometires";
+	mGeometries = std::make_unique<MeshGeometry>();
+	mGeometries->Name = "Geometires";
 
 	int renderItemOffset = 0;
 	UINT indexOffset = 0, vertexOffset = 0; //adjust in BuildSingleGeometry()
-	mRenderItems.push_back(BuildSingleGeometry(box, mGeometry.get(), vertices, vertexOffset, indices, indexOffset, 0, D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST));
-	mRenderItems.push_back(BuildSingleGeometry(objData, mGeometry.get(), vertices, vertexOffset, indices, indexOffset, 1, D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST));
+	mRenderItems.push_back(BuildSingleGeometry(box, mGeometries.get(), vertices, vertexOffset, indices, indexOffset, 0, D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST));
+	mRenderItems.push_back(BuildSingleGeometry(objData, mGeometries.get(), vertices, vertexOffset, indices, indexOffset, 1, D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST));
 	for (auto& e : mRenderItems)
 	{
 		mOpaqueRenderItems.push_back(e.get());
 	}
 	//Draw linelist objects
 	renderItemOffset += mRenderItems.size();
-	mRenderItems.push_back(BuildSingleGeometry(grid, mGeometry.get(), vertices, vertexOffset, indices, indexOffset, 2, D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST));
+	mRenderItems.push_back(BuildSingleGeometry(grid, mGeometries.get(), vertices, vertexOffset, indices, indexOffset, 2, D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST));
 	for (int i = renderItemOffset; i < mRenderItems.size(); ++i)
 	{
-		mLineRenderItems.push_back(mRenderItems[i].get());
+		mWireFrameRenderItems.push_back(mRenderItems[i].get());
 	}
 
 	const UINT64 vbStride = sizeof(Vertex);
@@ -554,20 +557,20 @@ void D3DToy::BuildGeometries()
 	const UINT ibByteSize = indices.size() * sizeof(uint32_t);
 
 	//Set necessary info
-	mGeometry->vertexBufferByteSize = vbByteSize;
-	mGeometry->vertexByteStride = sizeof(Vertex);
-	mGeometry->indexFormat = DXGI_FORMAT_R32_UINT;
-	mGeometry->indexBufferByteSize = ibByteSize;
+	mGeometries->vertexBufferByteSize = vbByteSize;
+	mGeometries->vertexByteStride = sizeof(Vertex);
+	mGeometries->indexFormat = DXGI_FORMAT_R32_UINT;
+	mGeometries->indexBufferByteSize = ibByteSize;
 
 	//Create resource on CPU
-	ThrowIfFailed(D3DCreateBlob(vbByteSize, &mGeometry->vertexBufferCPU));
-	CopyMemory(mGeometry->vertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);
-	ThrowIfFailed(D3DCreateBlob(ibByteSize, &mGeometry->indexBufferCPU));
-	CopyMemory(mGeometry->indexBufferCPU->GetBufferPointer(), indices.data(), ibByteSize);
+	ThrowIfFailed(D3DCreateBlob(vbByteSize, &mGeometries->vertexBufferCPU));
+	CopyMemory(mGeometries->vertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);
+	ThrowIfFailed(D3DCreateBlob(ibByteSize, &mGeometries->indexBufferCPU));
+	CopyMemory(mGeometries->indexBufferCPU->GetBufferPointer(), indices.data(), ibByteSize);
 
 	//Committed to default heap intermediately. IASetVertex/IndexBuffer indicates the interpting ways
-	CreateDefaultBuffer(mDevice.Get(), mCommandList.Get(), mGeometry->vertexBufferCPU->GetBufferPointer(), vbByteSize, mGeometry->vertexBufferGPU, mGeometry->vertexBufferUploader);
-	CreateDefaultBuffer(mDevice.Get(), mCommandList.Get(), mGeometry->indexBufferCPU->GetBufferPointer(), ibByteSize, mGeometry->indexBufferGPU, mGeometry->indexBufferUploader);
+	CreateDefaultBuffer(mDevice.Get(), mCommandList.Get(), mGeometries->vertexBufferCPU->GetBufferPointer(), vbByteSize, mGeometries->vertexBufferGPU, mGeometries->vertexBufferUploader);
+	CreateDefaultBuffer(mDevice.Get(), mCommandList.Get(), mGeometries->indexBufferCPU->GetBufferPointer(), ibByteSize, mGeometries->indexBufferGPU, mGeometries->indexBufferUploader);
 }
 void D3DToy::BuildSingleGroupGeometries()
 {
@@ -583,11 +586,11 @@ void D3DToy::BuildSingleGroupGeometries()
 	std::vector<Vertex> vertices;
 	std::vector<uint32_t> indices;
 	UINT k = 0;
-	mGeometry = std::make_unique<MeshGeometry>();
-	mGeometry->Name = "Geometires";
+	mGeometries = std::make_unique<MeshGeometry>();
+	mGeometries->Name = "Geometires";
 	for (int i = 0; i < meshDataGroup.size(); ++i)
 	{
-		mRenderItems.push_back(BuildSingleGeometry(meshDataGroup[i], mGeometry.get(), vertices, groupVertexOffset, indices, groupIndexOffset, i, D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST));
+		mRenderItems.push_back(BuildSingleGeometry(meshDataGroup[i], mGeometries.get(), vertices, groupVertexOffset, indices, groupIndexOffset, i, D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST));
 	}
 	for (auto& e : mRenderItems)
 	{
@@ -598,20 +601,20 @@ void D3DToy::BuildSingleGroupGeometries()
 	const UINT64 vbByteSize = vertices.size() * sizeof(Vertex);
 	const UINT ibByteSize = indices.size() * sizeof(uint32_t);
 
-	mGeometry->vertexBufferByteSize = vbByteSize;
-	mGeometry->vertexByteStride = sizeof(Vertex);
-	mGeometry->indexFormat = DXGI_FORMAT_R32_UINT;
-	mGeometry->indexBufferByteSize = ibByteSize;
+	mGeometries->vertexBufferByteSize = vbByteSize;
+	mGeometries->vertexByteStride = sizeof(Vertex);
+	mGeometries->indexFormat = DXGI_FORMAT_R32_UINT;
+	mGeometries->indexBufferByteSize = ibByteSize;
 
 	//Create resource on CPU
-	ThrowIfFailed(D3DCreateBlob(vbByteSize, &mGeometry->vertexBufferCPU));
-	CopyMemory(mGeometry->vertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);
-	ThrowIfFailed(D3DCreateBlob(ibByteSize, &mGeometry->indexBufferCPU));
-	CopyMemory(mGeometry->indexBufferCPU->GetBufferPointer(), indices.data(), ibByteSize);
+	ThrowIfFailed(D3DCreateBlob(vbByteSize, &mGeometries->vertexBufferCPU));
+	CopyMemory(mGeometries->vertexBufferCPU->GetBufferPointer(), vertices.data(), vbByteSize);
+	ThrowIfFailed(D3DCreateBlob(ibByteSize, &mGeometries->indexBufferCPU));
+	CopyMemory(mGeometries->indexBufferCPU->GetBufferPointer(), indices.data(), ibByteSize);
 
 	//Committed to default heap intermediately. IASetVertex/IndexBuffer indicates the interpting ways
-	CreateDefaultBuffer(mDevice.Get(), mCommandList.Get(), mGeometry->vertexBufferCPU->GetBufferPointer(), vbByteSize, mGeometry->vertexBufferGPU, mGeometry->vertexBufferUploader);
-	CreateDefaultBuffer(mDevice.Get(), mCommandList.Get(), mGeometry->indexBufferCPU->GetBufferPointer(), ibByteSize, mGeometry->indexBufferGPU, mGeometry->indexBufferUploader);
+	CreateDefaultBuffer(mDevice.Get(), mCommandList.Get(), mGeometries->vertexBufferCPU->GetBufferPointer(), vbByteSize, mGeometries->vertexBufferGPU, mGeometries->vertexBufferUploader);
+	CreateDefaultBuffer(mDevice.Get(), mCommandList.Get(), mGeometries->indexBufferCPU->GetBufferPointer(), ibByteSize, mGeometries->indexBufferGPU, mGeometries->indexBufferUploader);
 }
 std::unique_ptr<D3DToy::RenderItem> D3DToy::BuildSingleGeometry(GeometryGenerator::MeshData& meshData, MeshGeometry* geometry, std::vector<Vertex>& vertices, UINT& vertexOffset, std::vector<uint32_t>& indices, UINT& indexOffset,
 	int objCBIndex, D3D12_PRIMITIVE_TOPOLOGY topology)
@@ -649,8 +652,8 @@ std::unique_ptr<D3DToy::RenderItem> D3DToy::BuildSingleGeometry(GeometryGenerato
 }
 void D3DToy::CreatePipelineStateObject()
 {
-	auto vertexShader = CompileShader(L"src\\Shaders\\DefaultShader.hlsl", nullptr, "VS", "vs_5_0");
-	auto pixelShader = CompileShader(L"src\\Shaders\\DefaultShader.hlsl", nullptr, "PS", "ps_5_0");
+	auto vertexShader = CompileShader(L"src\\Shaders\\ToonShader.hlsl", nullptr, "VS", "vs_5_0");
+	auto pixelShader = CompileShader(L"src\\Shaders\\ToonShader.hlsl", nullptr, "PS", "ps_5_0");
 	//INput element Desc
 	std::vector<D3D12_INPUT_ELEMENT_DESC> inputLayout = {
 		// SemanticName, SemanticIndex, Format, InputSlot,  AlignedByteOffset, InputSlotClass(PER VERTEX / INSTANCE), InstanceDataStepRate

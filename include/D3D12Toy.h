@@ -39,6 +39,7 @@ protected:
 	float mFOV = 0.25 * XM_PI;
 	float nearZ = 10.0f;
 	float farZ = 10000.0f;
+	XMFLOAT4X4 mView, mProj;
 
 	static const int numFrameResources = 3;
 
@@ -78,9 +79,9 @@ private:
 	//One constant one material
 	struct MaterialConstants
 	{
-		DirectX::XMFLOAT4 diffuseAlbedo = { 1.0f, 1.0f, 1.0f, 1.0f };
-		DirectX::XMFLOAT3 fresnelR0 = { 0.01f, 0.01f, 0.01f };
-		float shininess = 0.25f;
+		DirectX::XMFLOAT4 diffuseAlbedo;
+		DirectX::XMFLOAT3 fresnelR0;
+		float shininess;
 		// Used in the chapter on texture mapping.
 		DirectX::XMFLOAT4X4 matTransform;
 	};
@@ -96,11 +97,11 @@ private:
 	//Constant buffer info used for different levels of CBV update frequency.
 	struct FrameResource {
 	public:
-		FrameResource(ID3D12Device* device, UINT passCount, UINT objectCount)
+		FrameResource(ID3D12Device* device, UINT passCount, UINT objectCount, UINT materialCount)
 		{
 			ThrowIfFailed(device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&cmdAllocator)));
 			objCB = std::make_unique<UploadBuffer<ObjectConstants>>(device, objectCount, true);
-			materialCB = std::make_unique<UploadBuffer<MaterialConstants>>(device, 2, true);
+			materialCB = std::make_unique<UploadBuffer<MaterialConstants>>(device, materialCount, true);
 			passCB = std::make_unique<UploadBuffer<PassConstants>>(device, passCount, true);
 			lightCB = std::make_unique<UploadBuffer<LightConstants>>(device, passCount, true);
 		}
@@ -111,14 +112,15 @@ private:
 		// We cannot reset the allocator until the GPU is done processing commands. 
 		// Each frame needs their own allocator.
 		ComPtr<ID3D12CommandAllocator> cmdAllocator;
-		// We cannot update a cbuffer until the GPU is done processing commands that reference it.
-		// Each frame needs their own cbuffers.
+		// We cannot update a cbuffer until the GPU is done processing commands that reference it.Each frame needs their own cbuffers.
+		//Obj constant buffer (Per obj)
 		std::unique_ptr<UploadBuffer<ObjectConstants>> objCB = nullptr;
-		std::unique_ptr<UploadBuffer<PassConstants>> passCB = nullptr;
-
-		//Material constant buffer
+		//Material constant buffer(Per obj)
 		std::unique_ptr<UploadBuffer<MaterialConstants>> materialCB = nullptr;
-		//Light constant buffer
+
+		//Per pass buffers below
+		std::unique_ptr<UploadBuffer<PassConstants>> passCB = nullptr;
+		//Light constant buffer(Per pass)
 		std::unique_ptr<UploadBuffer<LightConstants>> lightCB = nullptr;
 		//Dynamic vertex buffer
 		//std::unique_ptr<UploadBuffer<Vertex>> waveVB = nullptr;
@@ -192,20 +194,20 @@ private:
 	ComPtr<ID3D12Resource> mSwapChainBuffer[mBufferCount];
 	ComPtr<ID3D12Resource> mDepthStencilBuffer;
 	
-	std::unique_ptr<MeshGeometry> mGeometry;
+	std::unique_ptr<MeshGeometry> mGeometries;
 	std::unordered_map<std::string, std::unique_ptr<MaterialItem>> mMaterialItems;
 
 	std::vector<std::unique_ptr<RenderItem>> mRenderItems = {}; //All render items
 	std::vector<RenderItem*> mOpaqueRenderItems; //Divided by different PSO
 	std::vector<RenderItem*> mTransparentRenderItems;
-	std::vector<RenderItem*> mLineRenderItems;
+	std::vector<RenderItem*> mWireFrameRenderItems;
 
 	std::vector<std::unique_ptr<FrameResource>> mFrameResources;//Constant buffer
 	FrameResource* mCurrentFrameRes = nullptr;
 	int mCurrentFrameResIndex = 0;
 	int mMaterialCbvOffset = 0;
 
-	PassConstants mMainPassConst;
+	PassConstants mMainPassConst;//View, proj matrix, near Z, far z
 	LightConstants mLights;
 
 	ComPtr<ID3D12DescriptorHeap> mCBVHeap; //CBV for CPU and GPU commmu
@@ -220,9 +222,6 @@ private:
 	D3D12_VIEWPORT mViewport; //Reset whenever commandlist is reset
 	D3D12_RECT mScissorRect;	//Reset whenever commandlist is reset
 
-	XMFLOAT4X4 mView;
-	XMFLOAT4X4 mProj;
-
 	void CheckFeatureSupport();
 
 	void CreateCommandObjects();
@@ -230,7 +229,7 @@ private:
 
 	void CreateRTVAndDSVDescriptorHeap();
 
-	void BuildMaterial();
+	void BuildLightsAndMaterial();
 	//Organize geometry, upload to default heap
 	std::unique_ptr<RenderItem> BuildSingleGeometry(GeometryGenerator::MeshData& meshData, MeshGeometry* geometry, std::vector<Vertex>& vertices, UINT& vertexOffset, std::vector<uint32_t>& indices, UINT& indexOffset,
 		int objCBIndex, D3D12_PRIMITIVE_TOPOLOGY topology);
@@ -238,7 +237,7 @@ private:
 	void BuildGeometries(); //VBV and IBV creating on render
 	void BuildSingleGroupGeometries();
 
-	void CreateCBVDescriptorHeap();
+	void CreateCBVDescriptorHeap();//CB depends on Per-obj constants(mat, geometry)
 
 	void CreateRootSignature();
 

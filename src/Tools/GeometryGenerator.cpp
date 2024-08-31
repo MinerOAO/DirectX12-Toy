@@ -285,7 +285,7 @@ GeometryGenerator::MeshData GeometryGenerator::BuildGrid(float width, float dept
 	}
 
 	// 对于线框绘制，索引缓冲区需要明确定义每条边。与三角形面不同，线框需要显式定义每条边
-	//Define line list instead of trangle lists
+	//Here is a triangle index list
 	for (uint32_t i = 0; i < m - 1; ++i)
 	{
 		for (uint32_t j = 0; j < n - 1; ++j)
