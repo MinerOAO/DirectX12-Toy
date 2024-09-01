@@ -26,7 +26,7 @@ public:
 protected:
 	const D3D_FEATURE_LEVEL mAPPFeatureLevel = D3D_FEATURE_LEVEL_11_0;
 	DXGI_FORMAT mBackBufferFormat = DXGI_FORMAT_R8G8B8A8_UNORM; //UNORM and <= 10bit, otherwise may cause unhandle exception when creating swapchain
-	DXGI_FORMAT mDepthStencilBufferFormat = DXGI_FORMAT_D24_UNORM_S8_UINT; // TODO ?
+	DXGI_FORMAT mDepthStencilBufferFormat = DXGI_FORMAT_D24_UNORM_S8_UINT; // Depth 24 / Stencil 8
 	static const UINT mBufferCount = 2;
 	//UINT mCurrentBackBuffer = 0;
 

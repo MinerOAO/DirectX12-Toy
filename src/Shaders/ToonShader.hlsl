@@ -38,7 +38,7 @@ cbuffer cbLight : register(b3)
 
 float4 ComputeLighting(Material m, float3 pos, float3 normal, float3 toEye, float3 shadowFactor)
 {
-    float3 result = 0.0f;
+    float3 result = (float3)0.0f;
     int i = 0;
     //Diferences between lights: lightVec and strength calc ways
     
@@ -49,15 +49,8 @@ float4 ComputeLighting(Material m, float3 pos, float3 normal, float3 toEye, floa
         float3 lightVec = -directionalLights[i].direction;
         //Lambert cosine law
         float lightStrength = max(dot(lightVec, normal), 0.0f);
-        if (lightStrength < 0.1f)
-            lightStrength *= 0.0f;
-        if (lightStrength > 0.9f)
-            lightStrength *= 1.0f;
-        if (lightStrength < 0.5f)
-            lightStrength *= 0.3f;
-        else
-            lightStrength *= 0.7f;
-        result += BlinnPhong(pointLights[i].strength * lightStrength, lightVec, normal, toEye, m);;
+
+        result += BlinnPhong(directionalLights[i].strength * lightStrength, lightVec, normal, toEye, m);;
     }
     for (i = 0; i < MAX_POINT_LIGHT_SOURCE_NUM; ++i)
     {
@@ -70,14 +63,6 @@ float4 ComputeLighting(Material m, float3 pos, float3 normal, float3 toEye, floa
         float lightStrength = max(dot(lightVec, normal), 0.0f);
         //Attenuation
         lightStrength *= Attenuation(pointLights[i].falloffStart, pointLights[i].falloffEnd, distance);
-        if (lightStrength < 0.1f)
-            lightStrength *= 0.0f;
-        if (lightStrength > 0.9f)
-            lightStrength *= 1.0f;
-        if (lightStrength < 0.5f)
-            lightStrength *= 0.5f;
-        else
-            lightStrength *= 0.7f;
 
         result += BlinnPhong(pointLights[i].strength * lightStrength, lightVec, normal, toEye, m);
     }
@@ -95,17 +80,19 @@ float4 ComputeLighting(Material m, float3 pos, float3 normal, float3 toEye, floa
         //Spot
         lightStrength *= pow(max(dot(-lightVec, spotLights[i].direction), 0.0f), spotLights[i].spotPower);
         
-        if (lightStrength < 0.1f)
-            lightStrength *= 0.0f;
-        if (lightStrength > 0.9f)
-            lightStrength *= 1.0f;
-        if (lightStrength < 0.5f)
-            lightStrength *= 0.3f;
-        else
-            lightStrength *= 0.7f;
-        
         result += BlinnPhong(spotLights[i].strength * lightStrength, lightVec, normal, toEye, m);
     }
+    
+    float l = length(result);
+    if (l < 0.1f)
+        result *= 0.0f;
+    if (l > 0.9f)
+        result *= 1.1f;
+    if (l < 0.5f)
+        result *= 0.3f;
+    else
+        result *= 0.7f;
+    
     return float4(result, 0.0f);
 }
 

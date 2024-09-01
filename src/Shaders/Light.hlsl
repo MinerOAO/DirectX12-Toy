@@ -33,8 +33,8 @@ float3 BlinnPhong(float3 strength, float3 lightVec, float3 normal, float3 toEye,
     float3 halfVec = normalize(lightVec + toEye);
 
     //halfvector gives similarity between eyeVec and inverse lightVec
-    float shininessFactor = (1.0f + (mat.shininess / 8.0f)) * pow(max(dot(halfVec, normal), 0.0f), mat.shininess);
-    float fresnelFactor = SchlickFresnel(mat.fresnelR0, halfVec, lightVec);
+    float3 shininessFactor = (1.0f + (mat.shininess / 8.0f)) * pow(max(dot(halfVec, normal), 0.0f), mat.shininess);
+    float3 fresnelFactor = SchlickFresnel(mat.fresnelR0, halfVec, lightVec);
     
     float3 specAlbedo = shininessFactor * fresnelFactor;
     //tone mapping to [0,1].
