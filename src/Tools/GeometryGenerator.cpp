@@ -66,6 +66,7 @@ GeometryGenerator::MeshData GeometryGenerator::BuildCylinder(
 			group.indices.push_back(i * ringVertexCount + j + 1);
 		}
 	}
+	group.mtlName = "default";
 	meshData.idxGroups.push_back(group);
 	BuildCylinderCap(bottomR, topR, height, slice, stack, meshData);
 	return meshData;
@@ -127,6 +128,7 @@ void GeometryGenerator::BuildCylinderCap(
 		group.indices.push_back(baseIndex + i + 1);
 		group.indices.push_back(baseIndex + i);
 	}
+	group.mtlName = "default";
 	meshData.idxGroups.push_back(group);
 }
 
@@ -191,6 +193,7 @@ GeometryGenerator::MeshData GeometryGenerator::BuildBox(float length, float widt
 		//meshData.indices.push_back(i+2);
 		//meshData.indices.push_back(i);
 	}
+	group.mtlName = "default";
 	meshData.idxGroups.push_back(group);
 	return meshData;
 }
@@ -258,6 +261,7 @@ GeometryGenerator::MeshData GeometryGenerator::BuildSphere(float radius, uint32_
 			group.indices.push_back(i * ringVertexCount + j + 1);
 		}
 	}
+	group.mtlName = "default";
 	meshData.idxGroups.push_back(group);
 	return meshData;
 }
@@ -308,6 +312,7 @@ GeometryGenerator::MeshData GeometryGenerator::BuildGrid(float width, float dept
 
 		}
 	}
+	group.mtlName = "default";
 	meshData.idxGroups.push_back(group);
 	return meshData;
 }

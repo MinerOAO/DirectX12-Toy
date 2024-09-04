@@ -37,6 +37,7 @@ cbuffer cbLight : register(b3)
 }
 
 SamplerState defaultSampler : register(s0);
+Texture2D diffuseMap : register(t0);
 
 float4 ComputeLighting(Material m, float3 pos, float3 normal, float3 toEye, float3 shadowFactor)
 {
@@ -86,7 +87,8 @@ float4 ComputeLighting(Material m, float3 pos, float3 normal, float3 toEye, floa
     return float4(result, 0.0f);
 }
 
-void VS(float3 posL : POSITION, float3 normalL : NORMAL, out float4 posH : SV_POSITION, out float3 posW : POSITION, out float3 normalW : NORMAL)
+void VS(float3 posL : POSITION, float3 normalL : NORMAL, float2 texC : TEXC,
+    out float4 posH : SV_POSITION, out float3 posW : POSITION, out float3 normalW : NORMAL, out float2 texCoord : TEXC)
 {
     //Transform to world space
     float4 posWorld = mul(float4(posL, 1.0f), world);
@@ -95,8 +97,9 @@ void VS(float3 posL : POSITION, float3 normalL : NORMAL, out float4 posH : SV_PO
     posH = mul(posWorld, viewProj);
     // nonuniform scaling need to use inverse-transpose of world matrix (A^-1)T
     normalW = mul(normalL, (float3x3) world);
+    texCoord = texC;
 }
-float4 PS(float4 posH : SV_POSITION, float3 posW : POSITION, float3 normalW : NORMAL) : SV_TARGET
+float4 PS(float4 posH : SV_POSITION, float3 posW : POSITION, float3 normalW : NORMAL, float2 texCoord : TEXC) : SV_TARGET
 {
     //Interpolated normal may not be normalized
     normalW = normalize(normalW);
@@ -105,7 +108,8 @@ float4 PS(float4 posH : SV_POSITION, float3 posW : POSITION, float3 normalW : NO
     //indirect lighting
     float4 ambient = ambientLight * diffuseAlbedo;
     //direct lighting
-    Material mat = { diffuseAlbedo, fresnelR0, shininess };
+    float4 dAlbedo = diffuseMap.Sample(defaultSampler, texCoord) * diffuseAlbedo;
+    Material mat = { dAlbedo, fresnelR0, shininess };
     float4 diffuseSpec = ComputeLighting(mat, posW, normalW, toEyeW, 1.0f);
     
     return ambient + diffuseSpec;

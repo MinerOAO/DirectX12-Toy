@@ -88,8 +88,6 @@ void D3DToy::OnInit()
 //Create RTV using SwapChain buffer and descriptor heap handle
 //Create Depth/Stencil buffer, DSV. Initialize DSV state
 	CreateRTVAndDSVDescHeap();
-//Shader resource and samplers(static/dynamic)
-	CreateSRVAndSamplerDescHeap();
 //Organize geometry upload to default heap
 //Essential info for render geometries
 	BuildGeoAndMat();//VBV and IBV creating in DrawRenderItems()
@@ -97,7 +95,9 @@ void D3DToy::OnInit()
 //Materials used for geometries
 	SetLights();
 //Create Frame Reousrces and their Constant Buffer descriptor heap. CB num depends on Per-obj constants(mat, geometry)
-	CreateCBVDescriptorHeap();
+	CreateCBVAndSRVDescHeap();
+//Shader resource and samplers(static/dynamic)
+	CreateSamplerDescHeap();
 //Create Root signature
 	CreateRootSignature();
 //Create Shaders, Input layout and PSO
@@ -245,14 +245,16 @@ void D3DToy::OnRender()
 	//Specify the render buffer
 	mCommandList->OMSetRenderTargets(1, &rtvHandle, true, &dsvHandle);
 
+	//Set Root signature
+	mCommandList->SetGraphicsRootSignature(mRootSignature.Get());
 	//Set CBV
 	ID3D12DescriptorHeap* descriptorHeaps[] = { mConstBufferDescHeap.Get() };
 	mCommandList->SetDescriptorHeaps(_countof(descriptorHeaps), descriptorHeaps);
-	//Set Root signature
-	mCommandList->SetGraphicsRootSignature(mRootSignature.Get());
+
 	//using root descriptor instead of descriptor heap for single object per pass
 	mCommandList->SetGraphicsRootConstantBufferView(2, mCurrentFrameRes->passCB->Resource()->GetGPUVirtualAddress());
 	mCommandList->SetGraphicsRootConstantBufferView(3, mCurrentFrameRes->lightCB->Resource()->GetGPUVirtualAddress());
+
 	DrawRenderItems(mCommandList.Get(), mOpaqueRenderItems);
 	//Change pipelinestate
 	mCommandList->SetPipelineState(mPSOMap["line"].Get());
@@ -405,65 +407,7 @@ void D3DToy::CreateRTVAndDSVDescHeap()
 		D3D12_RESOURCE_STATE_DEPTH_WRITE
 	));
 }
-void D3DToy::CreateSRVAndSamplerDescHeap()
-{
-	//Shader resource Descriptor heap
-	D3D12_DESCRIPTOR_HEAP_DESC srHeapDesc = {}; //init
-	srHeapDesc.NumDescriptors = 1; // ?
-	srHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	//srvDesc.NodeMask = 0;
-	srHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-
-	ThrowIfFailed(mDevice->CreateDescriptorHeap(&srHeapDesc, IID_PPV_ARGS(&mShaderResDescHeap)));
-
-	//SRV Descriptor
-	CD3DX12_CPU_DESCRIPTOR_HANDLE srDescriptorHeap(
-		mShaderResDescHeap->GetCPUDescriptorHandleForHeapStart());
-	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING; //default component order
-	srvDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;// Same as tex resource, compressed:DXGI_FORMAT_BC3_UNORM, etc
-	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-	srvDesc.Texture2D.MostDetailedMip = 0;
-	srvDesc.Texture2D.MipLevels = 16; //texture related
-	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
-
-	//mDevice->CreateShaderResourceView(, &srvDesc, srDescriptorHeap);
-
-	//Next descriptor in heap
-	//srDescriptorHeap.Offset(1, mCBVDescSize);
-
-	//Sampler Descriptor heap
-	//D3D12_DESCRIPTOR_HEAP_DESC samplerHeapDesc = {};
-	//samplerHeapDesc.NumDescriptors = 1;
-	//samplerHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
-	//samplerHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-
-	//ThrowIfFailed(mDevice->CreateDescriptorHeap(&samplerHeapDesc, IID_PPV_ARGS(&mSamplerDescHeap)));
-	////Sampler Descriptor
-	//D3D12_SAMPLER_DESC samplerDesc = {};
-	//samplerDesc.Filter = D3D12_FILTER_ANISOTROPIC;
-	//samplerDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-	//samplerDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-	//samplerDesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-	//samplerDesc.MinLOD = 0;
-	//samplerDesc.MaxLOD = D3D12_FLOAT32_MAX;
-	//samplerDesc.MipLODBias = 0.0f;
-	//samplerDesc.MaxAnisotropy = 16;
-	//samplerDesc.ComparisonFunc = D3D12_COMPARISON_FUNC_ALWAYS;//Be used in shadow mapping
-
-	//mDevice->CreateSampler(&samplerDesc, mSamplerDescHeap->GetCPUDescriptorHandleForHeapStart());
-
-	//Static sampler
-	const CD3DX12_STATIC_SAMPLER_DESC defaultSampler(
-		0, //shader register/indx
-		D3D12_FILTER_ANISOTROPIC, //Filter type
-		D3D12_TEXTURE_ADDRESS_MODE_WRAP, //AddressU
-		D3D12_TEXTURE_ADDRESS_MODE_WRAP, //AddressV
-		D3D12_TEXTURE_ADDRESS_MODE_WRAP //AddressW
-	);
-	mStaticSamplers.push_back(defaultSampler);
-}
-void D3DToy::CreateCBVDescriptorHeap()
+void D3DToy::CreateCBVAndSRVDescHeap()
 {
 	for (int i = 0; i < numFrameResources; ++i)
 	{
@@ -472,10 +416,11 @@ void D3DToy::CreateCBVDescriptorHeap()
 	UINT objCount = (UINT)mRenderItems.size();//Changes from mOpaque to mRenderItems
 	UINT materialCount = (UINT)mMaterialItems.size();
 	mMaterialCbvOffset = objCount * numFrameResources;
+	mSRVOffset = mMaterialCbvOffset + materialCount * numFrameResources;
 	//Constant Buffer descriptor heap
 	D3D12_DESCRIPTOR_HEAP_DESC cbvHeapDesc;
 	cbvHeapDesc.NodeMask = 0; // GPU ID?
-	cbvHeapDesc.NumDescriptors = numFrameResources * (objCount + materialCount);
+	cbvHeapDesc.NumDescriptors = numFrameResources * (objCount + materialCount) + mTextures.size();
 	cbvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 	cbvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 
@@ -522,6 +467,59 @@ void D3DToy::CreateCBVDescriptorHeap()
 			mDevice->CreateConstantBufferView(&cbvDesc, handle);
 		}
 	}
+	//SRV Descriptor
+	int i = 0;
+	for (auto& tex : mTextures)
+	{
+		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING; //default component order
+		srvDesc.Format = tex.second->resource->GetDesc().Format;// Same as tex resource, compressed:DXGI_FORMAT_BC3_UNORM, etc
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		srvDesc.Texture2D.MostDetailedMip = 0;
+		srvDesc.Texture2D.MipLevels = tex.second->resource->GetDesc().MipLevels; //texture related
+		srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+
+		tex.second->diffuseSRVHeapIndex = i++;
+
+		CD3DX12_CPU_DESCRIPTOR_HANDLE srDescriptorHeap(
+			mConstBufferDescHeap->GetCPUDescriptorHandleForHeapStart());
+		int heapIndex = mSRVOffset + tex.second->diffuseSRVHeapIndex;
+		srDescriptorHeap.Offset(heapIndex, mCBVDescSize);
+		mDevice->CreateShaderResourceView(tex.second->resource.Get(), &srvDesc, srDescriptorHeap);
+	}
+}
+void D3DToy::CreateSamplerDescHeap()
+{
+	//Sampler Descriptor heap
+	//D3D12_DESCRIPTOR_HEAP_DESC samplerHeapDesc = {};
+	//samplerHeapDesc.NumDescriptors = 1;
+	//samplerHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
+	//samplerHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+
+	//ThrowIfFailed(mDevice->CreateDescriptorHeap(&samplerHeapDesc, IID_PPV_ARGS(&mSamplerDescHeap)));
+	////Sampler Descriptor
+	//D3D12_SAMPLER_DESC samplerDesc = {};
+	//samplerDesc.Filter = D3D12_FILTER_ANISOTROPIC;
+	//samplerDesc.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	//samplerDesc.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	//samplerDesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	//samplerDesc.MinLOD = 0;
+	//samplerDesc.MaxLOD = D3D12_FLOAT32_MAX;
+	//samplerDesc.MipLODBias = 0.0f;
+	//samplerDesc.MaxAnisotropy = 16;
+	//samplerDesc.ComparisonFunc = D3D12_COMPARISON_FUNC_ALWAYS;//Be used in shadow mapping
+
+	//mDevice->CreateSampler(&samplerDesc, mSamplerDescHeap->GetCPUDescriptorHandleForHeapStart());
+
+	//Static sampler
+	const CD3DX12_STATIC_SAMPLER_DESC defaultSampler(
+		0, //shader register/indx
+		D3D12_FILTER_ANISOTROPIC, //Filter type
+		D3D12_TEXTURE_ADDRESS_MODE_WRAP, //AddressU
+		D3D12_TEXTURE_ADDRESS_MODE_WRAP, //AddressV
+		D3D12_TEXTURE_ADDRESS_MODE_WRAP //AddressW
+	);
+	mStaticSamplers.push_back(defaultSampler);
 }
 void D3DToy::CreateRootSignature()
 {
@@ -533,21 +531,24 @@ void D3DToy::CreateRootSignature()
 
 	// A root signature is an array of root parameters.
 	// Root parameter can be a table, root descriptor or root constants.
-	CD3DX12_ROOT_PARAMETER slotRootParameter[4];
+	CD3DX12_ROOT_PARAMETER slotRootParameter[5];
 	//Create a single descriptor table of CBVs
-	CD3DX12_DESCRIPTOR_RANGE cbvTable0, cbvTableMaterial;
+	CD3DX12_DESCRIPTOR_RANGE cbvTable0 = {}, cbvTableMaterial = {}, srvTable = {};
 	cbvTable0.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0); //Set baseShaderRegister 0 -> buffer0(b0)
 	slotRootParameter[0].InitAsDescriptorTable(1, &cbvTable0); //Num of descriptor range, descriptor range
 
 	cbvTableMaterial.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 1);//buffer 1
-	slotRootParameter[1].InitAsDescriptorTable(1, &cbvTableMaterial);
+	slotRootParameter[1].InitAsDescriptorTable(1, &cbvTableMaterial);//only one descriptor in this descriptor range
 
 	slotRootParameter[2].InitAsConstantBufferView(2); //buffer 2
 
 	slotRootParameter[3].InitAsConstantBufferView(3); //buffer 3
 
+	srvTable.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0); //srv buffer 0
+	slotRootParameter[4].InitAsDescriptorTable(1, &srvTable, D3D12_SHADER_VISIBILITY_PIXEL);// important
+
 	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc(
-		4, 
+		5, 
 		slotRootParameter, 
 		mStaticSamplers.size(),
 		mStaticSamplers.data(),
@@ -588,11 +589,11 @@ void D3DToy::BuildGeoAndMat()
 
 	int renderItemOffset = 0;
 	UINT indexOffset = 0, vertexOffset = 0; //adjust in BuildSingleGeometry()
-	mRenderItems.push_back(BuildSingleGeometry(box, mGeometries.get(), vertices, vertexOffset, indices, indexOffset, 0, D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST));
+	BuildSingleGeometry(mRenderItems, box, mGeometries.get(), vertices, vertexOffset, indices, indexOffset, 0, D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	for (auto& mesh : objMeshes)
 	{
 		//Same objConstant buffer for now
-		mRenderItems.push_back(BuildSingleGeometry(mesh, mGeometries.get(), vertices, vertexOffset, indices, indexOffset, 1, D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST));
+		BuildSingleGeometry(mRenderItems, mesh, mGeometries.get(), vertices, vertexOffset, indices, indexOffset, 1, D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	}
 	for (auto& e : mRenderItems)
 	{
@@ -601,7 +602,7 @@ void D3DToy::BuildGeoAndMat()
 
 	//Draw linelist objects
 	renderItemOffset += mRenderItems.size();
-	mRenderItems.push_back(BuildSingleGeometry(grid, mGeometries.get(), vertices, vertexOffset, indices, indexOffset, 2, D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST));
+	BuildSingleGeometry(mRenderItems, grid, mGeometries.get(), vertices, vertexOffset, indices, indexOffset, 2, D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	for (int i = renderItemOffset; i < mRenderItems.size(); ++i)
 	{
 		mWireFrameRenderItems.push_back(mRenderItems[i].get());
@@ -628,18 +629,34 @@ void D3DToy::BuildGeoAndMat()
 	CreateDefaultBuffer(mDevice.Get(), mCommandList.Get(), mGeometries->indexBufferCPU->GetBufferPointer(), ibByteSize, mGeometries->indexBufferGPU, mGeometries->indexBufferUploader);
 
 	//Materials
-	std::string matName = "default";
-	auto material = std::make_unique<MaterialItem>();
-	material->matCBIndex = 0;
-	material->name = matName;
-	material->matConsts.diffuseAlbedo = XMFLOAT4(lightBlue);
-	material->matConsts.fresnelR0 = XMFLOAT3(0.02f, 0.02f, 0.02f);
-	material->matConsts.shininess = 16; //greater smoother, 256 512
-	mMaterialItems.emplace(matName, std::move(material));
+	for (int i = 0; i < mtlList.size(); ++i)
+	{
+		auto& m = mtlList[i];
+		auto material = std::make_unique<MaterialItem>();
+		material->matCBIndex = i;
+		material->name = m.mtlName;
+		material->texPath = m.texPath;
+		material->matConsts.diffuseAlbedo = XMFLOAT4(m.kd.x, m.kd.y, m.kd.z, 1.0f);
+		material->matConsts.fresnelR0 = XMFLOAT3(m.ni, m.ni, m.ni);
+		material->matConsts.shininess = 1 / m.ns; //greater smoother, 256 512
 
-	//mTextures.emplace("default", std::make_unique<Texture>());
-	//TextureLoader tex;
-	//tex.CreateTextureFromFile(L"assets\\models\\Homework\\Ai_Body00.png", mDevice, mCommandList, mTextures["default"]->resource, mTextures["default"]->uploadHeap);
+		//material->diffuseSRVHeapIndex
+		if (mTextures.find(material->texPath) == mTextures.end())
+		{
+			auto tex = std::make_unique<Texture>();
+			MaterialLoader::CreateTextureFromFile(material->texPath, mDevice, mCommandList, tex->resource, tex->uploadHeap);
+			mTextures.emplace(material->texPath, std::move(tex));
+		}
+		mMaterialItems.emplace(m.mtlName, std::move(material));
+	}
+	auto defaultMtl = std::make_unique<MaterialItem>();
+	defaultMtl->matCBIndex = mtlList.size();
+	defaultMtl->name = "default";
+	defaultMtl->matConsts.diffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
+	defaultMtl->matConsts.fresnelR0 = XMFLOAT3(0.95f, 0.95f, 0.95f);
+	defaultMtl->matConsts.shininess = 16; //greater smoother, 256 512
+	mMaterialItems.emplace("default", std::move(defaultMtl));
+
 }
 void D3DToy::SetLights()
 {
@@ -688,11 +705,9 @@ void D3DToy::CreatePipelineStateObject()
 }
 void D3DToy::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems)
 {
-	auto cbvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(
+	CD3DX12_GPU_DESCRIPTOR_HANDLE cbvHandle(
 		mConstBufferDescHeap->GetGPUDescriptorHandleForHeapStart());
-	//auto srvHandle = CD3DX12_GPU_DESCRIPTOR_HANDLE(
-	//	mShaderResDescHeap->GetGPUDescriptorHandleForHeapStart());
-	CD3DX12_GPU_DESCRIPTOR_HANDLE handle;
+	CD3DX12_GPU_DESCRIPTOR_HANDLE handle = {};
 	for (size_t i = 0; i < ritems.size(); ++i)
 	{
 		auto ri = ritems[i];
@@ -706,15 +721,19 @@ void D3DToy::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vect
 		handle.InitOffsetted(cbvHandle, cbvIndex, mCBVDescSize);
 		cmdList->SetGraphicsRootDescriptorTable(0, handle);//CB
 
+		auto& mat = mMaterialItems[ri->materialName];
 		//Should follow the sequency in CreateCBV? (All objCB, then matCB)
-		UINT matCBVIndex = mMaterialCbvOffset + mCurrentFrameResIndex * mMaterialItems.size() + mMaterialItems["default"]->matCBIndex;
+		UINT matCBVIndex = mMaterialCbvOffset + mCurrentFrameResIndex * mMaterialItems.size() + mat->matCBIndex;
 		handle.InitOffsetted(cbvHandle, matCBVIndex, mCBVDescSize);
 		cmdList->SetGraphicsRootDescriptorTable(1, handle);
 
 		//Shader Resource Buffer
-		//handle.InitOffsetted(srvHandle, 1, mCBVDescSize);
-		//cmdList->SetGraphicsRootDescriptorTable(4, handle);
-
+		if (!mat->texPath.empty())
+		{
+			int heapIndex = mSRVOffset + mTextures[mat->texPath]->diffuseSRVHeapIndex;
+			handle.InitOffsetted(cbvHandle, heapIndex, mCBVDescSize);
+			cmdList->SetGraphicsRootDescriptorTable(4, handle);
+		}
 
 		cmdList->DrawIndexedInstanced(ri->indexCount, 1,
 			ri->startIndexLocation, ri->baseVertexLocation, 0);//VB IB
@@ -771,7 +790,11 @@ void D3DToy::FlushCommandQueue() //in other words, wait Commands to be excuted c
 	}
 }
 
-std::unique_ptr<D3DToy::RenderItem> D3DToy::BuildSingleGeometry(GeometryGenerator::MeshData& meshData, MeshGeometry* geometry, std::vector<Vertex>& vertices, UINT& vertexOffset, std::vector<uint32_t>& indices, UINT& indexOffset,
+void D3DToy::BuildSingleGeometry(std::vector<std::unique_ptr<RenderItem>>& riList,
+	GeometryGenerator::MeshData& meshData,
+	MeshGeometry* geometry, 
+	std::vector<Vertex>& vertices, UINT& vertexOffset, 
+	std::vector<uint32_t>& indices, UINT& indexOffset,
 	int objCBIndex, D3D12_PRIMITIVE_TOPOLOGY topology)
 {
 	for (size_t i = 0; i < meshData.vertices.size(); ++i) //
@@ -779,33 +802,38 @@ std::unique_ptr<D3DToy::RenderItem> D3DToy::BuildSingleGeometry(GeometryGenerato
 		Vertex v;
 		v.pos = meshData.vertices[i].position;
 		v.normal = meshData.vertices[i].normal;
+		v.texCoordinate = meshData.vertices[i].texCoordinate;
 		vertices.push_back(v);
 	}
-	SubmeshGeometry submesh;
-	submesh.indexCount = 0;
-	//indexOffset in buffer
-	submesh.startIndexLocation = indexOffset;
-	//vertexOffset in buffer
-	submesh.baseVertexLocation = vertexOffset;
 
 	for (auto& e : meshData.idxGroups)
 	{
-		submesh.indexCount += e.indices.size();
+		//Set submesh
+		SubmeshGeometry submesh;
+		submesh.indexCount = e.indices.size();
+		//indexOffset in buffer
+		submesh.startIndexLocation = indexOffset;
+		//vertexOffset in buffer
+		submesh.baseVertexLocation = vertexOffset;
+
 		indices.insert(indices.end(), e.indices.begin(), e.indices.end());
+
+		std::string subMeshName = meshData.name + "_" + e.mtlName;
+
+		geometry->drawArgs[subMeshName] = submesh;
+
+		auto renderItem = std::make_unique<RenderItem>();
+		renderItem->objCBIndex = objCBIndex;
+		renderItem->geo = geometry;
+		renderItem->primitiveType = topology;
+		renderItem->indexCount = renderItem->geo->drawArgs[subMeshName].indexCount;
+		renderItem->startIndexLocation = renderItem->geo->drawArgs[subMeshName].startIndexLocation;
+		renderItem->baseVertexLocation = renderItem->geo->drawArgs[subMeshName].baseVertexLocation;
+		renderItem->materialName = e.mtlName;
+
+		riList.push_back(std::move(renderItem));
+
+		indexOffset += (UINT)submesh.indexCount;
 	}
-
-	//Set submesh
-	geometry->drawArgs[meshData.name] = submesh;
-
-	auto renderItem = std::make_unique<RenderItem>();
-	renderItem->objCBIndex = objCBIndex;
-	renderItem->geo = geometry;
-	renderItem->primitiveType = topology;
-	renderItem->indexCount = renderItem->geo->drawArgs[meshData.name].indexCount;
-	renderItem->startIndexLocation = renderItem->geo->drawArgs[meshData.name].startIndexLocation;
-	renderItem->baseVertexLocation = renderItem->geo->drawArgs[meshData.name].baseVertexLocation;
-
-	indexOffset += (UINT)submesh.indexCount;
 	vertexOffset += (UINT)meshData.vertices.size();
-	return renderItem;
 }

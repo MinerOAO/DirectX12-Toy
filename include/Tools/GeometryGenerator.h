@@ -51,3 +51,62 @@ public:
 private:
 	void BuildCylinderCap(float bottomR, float topR, float height, uint32_t slice, uint32_t stack, MeshData& meshData);
 };
+
+struct SubmeshGeometry
+{
+    UINT indexCount = 0;
+    UINT startIndexLocation = 0;
+    INT baseVertexLocation = 0;
+};
+struct MeshGeometry
+{
+    std::string Name;
+
+    //System memory copies
+    ComPtr<ID3DBlob> vertexBufferCPU = nullptr;
+    ComPtr<ID3DBlob> indexBufferCPU = nullptr;
+
+    //Default heap
+    ComPtr<ID3D12Resource> vertexBufferGPU = nullptr;
+    ComPtr<ID3D12Resource> indexBufferGPU = nullptr;
+
+    //Upload heap
+    ComPtr<ID3D12Resource> vertexBufferUploader = nullptr;
+    ComPtr<ID3D12Resource> indexBufferUploader = nullptr;
+
+    //Info about the buffers
+    UINT vertexByteStride = 0;
+    UINT vertexBufferByteSize = 0;
+    DXGI_FORMAT indexFormat = DXGI_FORMAT_R16_UINT;
+    UINT indexBufferByteSize = 0;
+
+    // A MeshGeometry may store multiple geometries in one vertex/index 
+    // buffer.
+    // Use this container to define the Submesh geometries so we can draw
+    // the Submeshes individually.
+    std::unordered_map<std::string, SubmeshGeometry> drawArgs;
+
+    D3D12_VERTEX_BUFFER_VIEW VertexBufferView() const
+    {
+        D3D12_VERTEX_BUFFER_VIEW vbv;
+        vbv.BufferLocation = vertexBufferGPU->GetGPUVirtualAddress();
+        vbv.SizeInBytes = vertexBufferByteSize;
+        vbv.StrideInBytes = vertexByteStride;
+        return vbv;
+    }
+
+    D3D12_INDEX_BUFFER_VIEW IndexBufferView() const
+    {
+        D3D12_INDEX_BUFFER_VIEW ibv;
+        ibv.BufferLocation = indexBufferGPU->GetGPUVirtualAddress();
+        ibv.Format = indexFormat;
+        ibv.SizeInBytes = indexBufferByteSize;
+        return ibv;
+    }
+    //Dispose after upload to GPU
+    void DisposeUploaders()
+    {
+        vertexBufferUploader = nullptr;
+        indexBufferUploader = nullptr;
+    }
+};

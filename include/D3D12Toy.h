@@ -149,7 +149,7 @@ private:
 		int numFramesDirty = numFrameResources;
 		// Index into GPU constant buffer corresponding to the ObjectCB for this render item.
 		UINT objCBIndex = -1;
-		std::string materialName = "";
+		std::string materialName = "default";
 		// Geometry associated with this render-item. Multiple render-items can share the same geometry.
 		MeshGeometry* geo = nullptr;
 		// Primitive topology.
@@ -170,8 +170,8 @@ private:
 		std::string name;
 		//Index in CB 
 		int matCBIndex = -1;
-		//Index in SRV heap for diffuse texture
-		int diffuseSRVHeapIndex = -1;
+		//Texture map path
+		std::string texPath;
 		//Dirty flag
 		int numFramesDirty = numFrameResources;
 
@@ -191,7 +191,7 @@ private:
 
 	ComPtr<ID3D12DescriptorHeap> mRTVDescHeap; //Render Target V
 	ComPtr<ID3D12DescriptorHeap> mDSVDescHeap; //Depth Stencil V
-	ComPtr<ID3D12DescriptorHeap> mShaderResDescHeap; //Shader Resource View
+	//ComPtr<ID3D12DescriptorHeap> mShaderResDescHeap; //Shader Resource View
 
 	ComPtr<ID3D12DescriptorHeap> mSamplerDescHeap;// For Dynamic Sampler
 	std::vector<CD3DX12_STATIC_SAMPLER_DESC> mStaticSamplers;
@@ -212,6 +212,7 @@ private:
 	FrameResource* mCurrentFrameRes = nullptr;
 	int mCurrentFrameResIndex = 0;
 	int mMaterialCbvOffset = 0;
+	int mSRVOffset = 0;
 
 	PassConstants mMainPassConst;//View, proj matrix, near Z, far z
 	LightConstants mLights;
@@ -234,17 +235,17 @@ private:
 	void CreateSwapChain();
 
 	void CreateRTVAndDSVDescHeap();
-	void CreateSRVAndSamplerDescHeap();
+	void CreateSamplerDescHeap();
 
 	//Organize geometry, upload to default heap
-	std::unique_ptr<RenderItem> BuildSingleGeometry(GeometryGenerator::MeshData& meshData, MeshGeometry* geometry, std::vector<Vertex>& vertices, UINT& vertexOffset, std::vector<uint32_t>& indices, UINT& indexOffset,
+	void BuildSingleGeometry(std::vector<std::unique_ptr<RenderItem>>& riList, GeometryGenerator::MeshData& meshData, MeshGeometry* geometry, std::vector<Vertex>& vertices, UINT& vertexOffset, std::vector<uint32_t>& indices, UINT& indexOffset,
 		int objCBIndex, D3D12_PRIMITIVE_TOPOLOGY topology);
 
 	void BuildGeoAndMat(); //VBV and IBV creating on render
 
 	void SetLights();
 
-	void CreateCBVDescriptorHeap();//CB depends on Per-obj constants(mat, geometry)
+	void CreateCBVAndSRVDescHeap();//CB depends on Per-obj constants(mat, geometry)
 
 	void CreateRootSignature();
 
