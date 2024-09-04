@@ -25,8 +25,9 @@ const FLOAT lightGreen[4] = { 0.4f, 1.0f, 0.8f, 1.0f };
 
 struct Vertex
 {
-    DirectX::XMFLOAT3 Pos;
-    DirectX::XMFLOAT3 Normal;
+    DirectX::XMFLOAT3 pos;
+    DirectX::XMFLOAT3 normal;
+    DirectX::XMFLOAT2 texCoordinate;
 };
 struct Light
 {
@@ -95,7 +96,14 @@ struct MeshGeometry
         indexBufferUploader = nullptr;
     }
 };
-
+struct Texture
+{
+    //for look up
+    std::string name;
+    //default?
+    ComPtr<ID3D12Resource> resource = nullptr;
+    ComPtr<ID3D12Resource> uploadHeap = nullptr;
+};
 void CreateDefaultBuffer(
     ID3D12Device* device,
     ID3D12GraphicsCommandList* cmdList,
@@ -198,6 +206,26 @@ inline void ThrowIfFailed(HRESULT hr) // HRESULT -> subname for long type
     {
         throw HrException(hr);
     }
+}
+
+static std::vector<std::string> SplitString(std::string& s, char separator)
+{
+    std::vector<std::string> subStrings;
+    int i = 0;
+    for (int j = 0; j < s.size(); ++j)
+    {
+        if (s[j] == separator)
+        {
+            subStrings.push_back(s.substr(i, j - i));//start index, length
+            ++j;
+            i = j;
+        }
+    }
+    if (i < s.size())//last part
+    {
+        subStrings.push_back(s.substr(i, s.size() - i));
+    }
+    return subStrings;
 }
 
 #if defined(_DEBUG) || defined(DBG)

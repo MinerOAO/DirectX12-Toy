@@ -36,6 +36,8 @@ cbuffer cbLight : register(b3)
     Light spotLights[MAX_SPOT_LIGHT_SOURCE_NUM];
 }
 
+SamplerState defaultSampler : register(s0);
+
 float4 ComputeLighting(Material m, float3 pos, float3 normal, float3 toEye, float3 shadowFactor)
 {
     float3 result = 0.0f;

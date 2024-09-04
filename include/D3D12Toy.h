@@ -189,11 +189,17 @@ private:
 	ComPtr<ID3D12GraphicsCommandList> mCommandList;
 	ComPtr<ID3D12CommandQueue> mCommandQueue;
 
-	ComPtr<ID3D12DescriptorHeap> mRTVHeap;
-	ComPtr<ID3D12DescriptorHeap> mDSVHeap;
+	ComPtr<ID3D12DescriptorHeap> mRTVDescHeap; //Render Target V
+	ComPtr<ID3D12DescriptorHeap> mDSVDescHeap; //Depth Stencil V
+	ComPtr<ID3D12DescriptorHeap> mShaderResDescHeap; //Shader Resource View
+
+	ComPtr<ID3D12DescriptorHeap> mSamplerDescHeap;// For Dynamic Sampler
+	std::vector<CD3DX12_STATIC_SAMPLER_DESC> mStaticSamplers;
+
 	ComPtr<ID3D12Resource> mSwapChainBuffer[mBufferCount];
 	ComPtr<ID3D12Resource> mDepthStencilBuffer;
 	
+	std::unordered_map<std::string, std::unique_ptr<Texture>> mTextures;
 	std::unique_ptr<MeshGeometry> mGeometries;
 	std::unordered_map<std::string, std::unique_ptr<MaterialItem>> mMaterialItems;
 
@@ -210,7 +216,7 @@ private:
 	PassConstants mMainPassConst;//View, proj matrix, near Z, far z
 	LightConstants mLights;
 
-	ComPtr<ID3D12DescriptorHeap> mCBVHeap; //CBV for CPU and GPU commmu
+	ComPtr<ID3D12DescriptorHeap> mConstBufferDescHeap; //CBV for CPU and GPU commmu
 	ComPtr<ID3D12RootSignature> mRootSignature;
 
 	std::unordered_map<std::string, ComPtr<ID3D12PipelineState>> mPSOMap;
@@ -227,15 +233,16 @@ private:
 	void CreateCommandObjects();
 	void CreateSwapChain();
 
-	void CreateRTVAndDSVDescriptorHeap();
+	void CreateRTVAndDSVDescHeap();
+	void CreateSRVAndSamplerDescHeap();
 
-	void BuildLightsAndMaterial();
 	//Organize geometry, upload to default heap
 	std::unique_ptr<RenderItem> BuildSingleGeometry(GeometryGenerator::MeshData& meshData, MeshGeometry* geometry, std::vector<Vertex>& vertices, UINT& vertexOffset, std::vector<uint32_t>& indices, UINT& indexOffset,
 		int objCBIndex, D3D12_PRIMITIVE_TOPOLOGY topology);
 
-	void BuildGeometries(); //VBV and IBV creating on render
-	void BuildSingleGroupGeometries();
+	void BuildGeoAndMat(); //VBV and IBV creating on render
+
+	void SetLights();
 
 	void CreateCBVDescriptorHeap();//CB depends on Per-obj constants(mat, geometry)
 

@@ -48,6 +48,7 @@ GeometryGenerator::MeshData GeometryGenerator::BuildCylinder(
 			meshData.vertices.push_back(v);
 		}
 	}
+	IndicesGroup group;
 	uint32_t ringVertexCount = slice + 1;
 	for (uint32_t i = 0; i < stack; ++i)
 	{
@@ -55,16 +56,17 @@ GeometryGenerator::MeshData GeometryGenerator::BuildCylinder(
 		for (uint32_t j = 0; j < slice; ++j)
 		{
 			//ABC
-			meshData.indices.push_back(i * ringVertexCount + j);
-			meshData.indices.push_back((i+1) * ringVertexCount + j);
-			meshData.indices.push_back((i + 1) * ringVertexCount + j + 1);
+			group.indices.push_back(i * ringVertexCount + j);
+			group.indices.push_back((i+1) * ringVertexCount + j);
+			group.indices.push_back((i + 1) * ringVertexCount + j + 1);
 
 			//ACD
-			meshData.indices.push_back(i * ringVertexCount + j);
-			meshData.indices.push_back((i + 1) * ringVertexCount + j + 1);
-			meshData.indices.push_back(i * ringVertexCount + j + 1);
+			group.indices.push_back(i * ringVertexCount + j);
+			group.indices.push_back((i + 1) * ringVertexCount + j + 1);
+			group.indices.push_back(i * ringVertexCount + j + 1);
 		}
 	}
+	meshData.idxGroups.push_back(group);
 	BuildCylinderCap(bottomR, topR, height, slice, stack, meshData);
 	return meshData;
 }
@@ -92,12 +94,13 @@ void GeometryGenerator::BuildCylinderCap(
 	// Cap center vertex.
 	meshData.vertices.push_back(Vertex(0.0f, y, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.5f,0.5f));
 	// Index of center vertex.
+	IndicesGroup group;
 	uint32_t centerIndex = (uint32_t)meshData.vertices.size() - 1;
 	for (uint32_t i = 0; i < slice; ++i)
 	{
-		meshData.indices.push_back(centerIndex);
-		meshData.indices.push_back(baseIndex + i + 1);
-		meshData.indices.push_back(baseIndex + i);
+		group.indices.push_back(centerIndex);
+		group.indices.push_back(baseIndex + i + 1);
+		group.indices.push_back(baseIndex + i);
 	}
 
 	//Bottom
@@ -120,10 +123,11 @@ void GeometryGenerator::BuildCylinderCap(
 	centerIndex = (uint32_t)meshData.vertices.size() - 1;
 	for (uint32_t i = 0; i < slice; ++i)
 	{
-		meshData.indices.push_back(centerIndex);
-		meshData.indices.push_back(baseIndex + i + 1);
-		meshData.indices.push_back(baseIndex + i);
+		group.indices.push_back(centerIndex);
+		group.indices.push_back(baseIndex + i + 1);
+		group.indices.push_back(baseIndex + i);
 	}
+	meshData.idxGroups.push_back(group);
 }
 
 GeometryGenerator::MeshData GeometryGenerator::BuildBox(float length, float width, float height)
@@ -167,16 +171,17 @@ GeometryGenerator::MeshData GeometryGenerator::BuildBox(float length, float widt
 	v.push_back(Vertex(+l2, -h2, +w2, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f));
 	v.push_back(Vertex(+l2, +h2, +w2, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f));
 
+	IndicesGroup group;
 	//indices
 	for (uint32_t i = 0; i < 24; i+=4)
 	{
-		meshData.indices.push_back(i + 1);
-		meshData.indices.push_back(i);
-		meshData.indices.push_back(i + 3);
+		group.indices.push_back(i + 1);
+		group.indices.push_back(i);
+		group.indices.push_back(i + 3);
 
-		meshData.indices.push_back(i + 1);
-		meshData.indices.push_back(i + 3);
-		meshData.indices.push_back(i + 2);
+		group.indices.push_back(i + 1);
+		group.indices.push_back(i + 3);
+		group.indices.push_back(i + 2);
 		
 		//meshData.indices.push_back(i + 2);
 		//meshData.indices.push_back(i+1);
@@ -186,6 +191,7 @@ GeometryGenerator::MeshData GeometryGenerator::BuildBox(float length, float widt
 		//meshData.indices.push_back(i+2);
 		//meshData.indices.push_back(i);
 	}
+	meshData.idxGroups.push_back(group);
 	return meshData;
 }
 GeometryGenerator::MeshData GeometryGenerator::BuildSphere(float radius, uint32_t slice, uint32_t stack)
@@ -235,22 +241,24 @@ GeometryGenerator::MeshData GeometryGenerator::BuildSphere(float radius, uint32_
 		}
 		currentY += stackHeight;
 	}
+	IndicesGroup group;
 	uint32_t ringVertexCount = slice + 1;
 	for (uint32_t i = 0; i < stack; ++i)
 	{
 		for (uint32_t j = 0; j < slice; ++j)
 		{
 			//ABC
-			meshData.indices.push_back(i * ringVertexCount + j);
-			meshData.indices.push_back((i + 1) * ringVertexCount + j);
-			meshData.indices.push_back((i + 1) * ringVertexCount + j + 1);
+			group.indices.push_back(i * ringVertexCount + j);
+			group.indices.push_back((i + 1) * ringVertexCount + j);
+			group.indices.push_back((i + 1) * ringVertexCount + j + 1);
 
 			//ACD
-			meshData.indices.push_back(i * ringVertexCount + j);
-			meshData.indices.push_back((i + 1) * ringVertexCount + j + 1);
-			meshData.indices.push_back(i * ringVertexCount + j + 1);
+			group.indices.push_back(i * ringVertexCount + j);
+			group.indices.push_back((i + 1) * ringVertexCount + j + 1);
+			group.indices.push_back(i * ringVertexCount + j + 1);
 		}
 	}
+	meshData.idxGroups.push_back(group);
 	return meshData;
 }
 GeometryGenerator::MeshData GeometryGenerator::BuildGrid(float width, float depth, uint32_t m, uint32_t n)
@@ -283,57 +291,40 @@ GeometryGenerator::MeshData GeometryGenerator::BuildGrid(float width, float dept
 			meshData.vertices.push_back(v);
 		}
 	}
-
+	IndicesGroup group;
 	// 对于线框绘制，索引缓冲区需要明确定义每条边。与三角形面不同，线框需要显式定义每条边
 	//Here is a triangle index list
 	for (uint32_t i = 0; i < m - 1; ++i)
 	{
 		for (uint32_t j = 0; j < n - 1; ++j)
 		{
-			meshData.indices.push_back(i * n + j);
-			meshData.indices.push_back(i * n + j + 1);
-			meshData.indices.push_back((i + 1) * n + j);
+			group.indices.push_back(i * n + j);
+			group.indices.push_back(i * n + j + 1);
+			group.indices.push_back((i + 1) * n + j);
 
-			meshData.indices.push_back((i + 1) * n + j);
-			meshData.indices.push_back(i * n + j + 1);
-			meshData.indices.push_back((i + 1) * n + j + 1);
+			group.indices.push_back((i + 1) * n + j);
+			group.indices.push_back(i * n + j + 1);
+			group.indices.push_back((i + 1) * n + j + 1);
 
 		}
 	}
+	meshData.idxGroups.push_back(group);
 	return meshData;
 }
-std::vector<std::string> SplitString(std::string& s, char separator)
-{
-	std::vector<std::string> subStrings;
-	int i = 0;
-	for (int j = 0; j < s.size(); ++j)
-	{
-		if (s[j] == separator)
-		{
-			subStrings.push_back(s.substr(i, j - i));//start index, length
-			++j;
-			i = j;
-		}
-	}
-	if (i < s.size())//last part
-	{
-		subStrings.push_back(s.substr(i, s.size() - i));
-	}
-	return subStrings;
-}
-void GeometryGenerator::ReadObjFile(std::string filename, std::vector<GeometryGenerator::MeshData>& storage)
+void GeometryGenerator::ReadObjFile(std::string path, std::string fileName, std::vector<GeometryGenerator::MeshData>& storage, std::vector<MaterialLoader::Material>& mtlList)
 {
 	std::ifstream objFile;
-	objFile.open(filename);
+	objFile.open(path + "\\" + fileName);
 	std::string line;
 
 	auto& meshDataGroup = storage;
 
 	MeshData currentMeshData;
-	bool first = true;
+	IndicesGroup currentIdxGroup;
+	bool firstMesh = true;
+	bool gSign = false;
 
-	bool isGroup = false;
-	std::string groupName;
+	std::string meshName;
 
 	int currentVertexIndex = 0;
 	int v = 0, vt = 0, vn = 0;
@@ -347,21 +338,66 @@ void GeometryGenerator::ReadObjFile(std::string filename, std::vector<GeometryGe
 		std::vector<std::string> lineParts = SplitString(line, ' ');
 		if (lineParts.size() > 0)
 		{
+			if (lineParts[0] == "mtllib")
+			{
+				MaterialLoader mtlLoader;
+				mtlLoader.ReadMtlFile(path, lineParts[1], mtlList);
+			}
+			//MeshData Triangle Indices and corresponding face Matrial
 			if (lineParts[0] == "g")
 			{
-				isGroup = true;
-				groupName = lineParts[1] != "group" ? lineParts[1] : lineParts[2];
+				gSign = true;
+				meshName = lineParts[1] != "group" ? lineParts[1] : lineParts[2];
 			}
-			if (lineParts[0] == "usemtl" && isGroup)
+			if (lineParts[0] == "usemtl")
 			{
-				if (first)
-					first = false;
+				//Do not push first mesh into groups now. The indices currentIdxGroup are empty now.
+				if (firstMesh)
+					firstMesh = false;
 				else
-					meshDataGroup.push_back(currentMeshData);
-				currentMeshData = MeshData();
-				currentMeshData.name = groupName;
-				isGroup = false;
+				{
+					//Next indices group coming. Save present.
+					currentMeshData.idxGroups.push_back(currentIdxGroup);
+					if (gSign)
+					{
+						//Next mesh data coming. Save
+						meshDataGroup.push_back(currentMeshData);
+						currentMeshData = MeshData();
+						//Wait for next mesh indices(g and usemtl)
+						gSign = false;
+					}
+					//New Idx group
+					currentIdxGroup = IndicesGroup();
+				}
+				//Fill in names
+				currentMeshData.name = meshName;
+				currentIdxGroup.mtlName = lineParts[1];
 			}
+			if (lineParts[0] == "f")
+			{
+				for (int i = 1; i < lineParts.size(); ++i)
+				{
+					auto vertexInfo = SplitString(lineParts[i], '/');
+					int vertexIndex = std::stoi(vertexInfo[0]) - 1;//Index in file starts from 1
+					DirectX::XMFLOAT3& position = tempV[vertexIndex]; //v
+					//Jump over according to mark
+					if (position.x == D3D12_MAX_POSITION_VALUE)
+					{
+						currentIdxGroup.indices.push_back(position.z);
+						continue;
+					}
+					DirectX::XMFLOAT2& tex = tempVt[std::stoi(vertexInfo[1]) - 1]; //vt
+					DirectX::XMFLOAT3& normal = tempVn[std::stoi(vertexInfo[2]) - 1]; //vn
+					currentMeshData.vertices.push_back(Vertex(position, normal, DirectX::XMFLOAT3(), tex));
+
+					int indexInCurrentMesh = currentMeshData.vertices.size() - 1;
+					currentIdxGroup.indices.push_back(indexInCurrentMesh);
+					//Mark this vertex
+					position.x = D3D12_MAX_POSITION_VALUE;
+					position.z = indexInCurrentMesh;
+				}
+			}
+			//MeshData Vertices
 			if (lineParts[0] == "v")
 			{
 				tempV.push_back(DirectX::XMFLOAT3(
@@ -388,32 +424,9 @@ void GeometryGenerator::ReadObjFile(std::string filename, std::vector<GeometryGe
 				));
 				++vn;
 			}
-			if (lineParts[0] == "f")
-			{
-				for (int i = 1; i < lineParts.size(); ++i)
-				{
-					auto vertexInfo = SplitString(lineParts[i], '/');
-					int vertexIndex = std::stoi(vertexInfo[0]) - 1;
-					DirectX::XMFLOAT3& position = tempV[vertexIndex]; //v
-					//Jump over according to mark
-					if (position.x == D3D12_MAX_POSITION_VALUE)
-					{
-						currentMeshData.indices.push_back(position.z);
-						continue;
-					}
-					DirectX::XMFLOAT2& tex = tempVt[std::stoi(vertexInfo[1]) - 1]; //vt
-					DirectX::XMFLOAT3& normal = tempVn[std::stoi(vertexInfo[2]) - 1]; //vn
-					currentMeshData.vertices.push_back(Vertex(position, normal, DirectX::XMFLOAT3(), tex));
-
-					int indexInMesh = currentMeshData.vertices.size() - 1;
-					currentMeshData.indices.push_back(indexInMesh);
-					//Mark this vertex
-					position.x = D3D12_MAX_POSITION_VALUE;
-					position.z = indexInMesh;
-				}
-			}
 		}
 	}
+	currentMeshData.idxGroups.push_back(currentIdxGroup);
 	meshDataGroup.push_back(currentMeshData); //last one
 
 	OutputDebugString(std::to_wstring(v).c_str());
@@ -423,14 +436,15 @@ void GeometryGenerator::ReadObjFile(std::string filename, std::vector<GeometryGe
 	objFile.close();
 }
 
-void GeometryGenerator::ReadObjFileInOne(std::string filename, GeometryGenerator::MeshData& storage)
+void GeometryGenerator::ReadObjFileInOne(std::string path, std::string fileName, GeometryGenerator::MeshData& storage)
 {
 	std::ifstream objFile;
-	objFile.open(filename);
+	objFile.open(path + "\\" + fileName);
 	std::string line;
 
 	MeshData& meshData = storage;
-	meshData.name = "obj";
+	meshData.name = fileName;
+	IndicesGroup group;
 	int currentVertexIndex = 0;
 	int v = 0, vt = 0, vn = 0;
 
@@ -484,11 +498,13 @@ void GeometryGenerator::ReadObjFileInOne(std::string filename, GeometryGenerator
 						vertex.normal = tempVn[std::stoi(vertexInfo[2])]; //vn
 						completionSet.insert(vertexIndex);
 					}
-					meshData.indices.push_back(vertexIndex);
+					group.indices.push_back(vertexIndex);
 				}
 			}
 		}
 	}
+	meshData.idxGroups.push_back(group);
+
 	OutputDebugString(std::to_wstring(v).c_str());
 	OutputDebugString(std::to_wstring(vt).c_str());
 	OutputDebugString(std::to_wstring(vn).c_str());

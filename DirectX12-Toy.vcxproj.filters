@@ -45,6 +45,9 @@
     <ClInclude Include="include\Tools\GeometryGenerator.h">
       <Filter>Header Files\Tools</Filter>
     </ClInclude>
+    <ClInclude Include="include\Tools\MaterialLoader.h">
+      <Filter>Header Files\Tools</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\DXSample.cpp">
@@ -69,6 +72,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\Tools\GeometryGenerator.cpp">
+      <Filter>Source Files\Tools</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Tools\MaterialLoader.cpp">
       <Filter>Source Files\Tools</Filter>
     </ClCompile>
   </ItemGroup>
