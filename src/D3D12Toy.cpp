@@ -3,18 +3,9 @@
 
 D3DToy::D3DToy(UINT width, UINT height, std::wstring name) : DXSample(width, height, name) 
 {
-	//Init view matrix
-	XMVECTOR position = XMVectorSet(mRadius * cosf(mPhi) * cosf(mTheta), mRadius * sinf(mPhi), mRadius * cosf(mPhi) * sinf(mTheta), 1.0f);
-	XMVECTOR target = XMVectorZero();
-	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-
-	XMMATRIX view = XMMatrixLookAtLH(position, target, up);
-	XMStoreFloat4x4(&mView, view);
-	//INit proj
-
+	//Init proj
 	XMMATRIX p = XMMatrixPerspectiveFovLH(mFOV, m_aspectRatio, nearZ, farZ);
 	XMStoreFloat4x4(&mProj, p);
-
 }
 D3DToy::~D3DToy()
 {
@@ -47,7 +38,10 @@ void D3DToy::OnMouseMove(int xPos, int yPos, bool updatePos)
 void D3DToy::OnZoom(short delta)
 {
 	mRadius -= delta * zoomSense;
-	mRadius = mRadius < 0.1f ? 0.1f : mRadius;
+	if (mRadius < 0.1f)
+	{
+		mRadius = 0.1f;
+	}
 	//view matrix update in OnUpdate() pass constants.
 }
 
@@ -165,7 +159,8 @@ void D3DToy::OnUpdate()
 	// sin* cos, cos, sin * sin?
 	// cos * cos, sin, cos * sin?
 	XMVECTOR position = XMVectorSet(mRadius * cosf(mPhi) * cosf(mTheta), mRadius * sinf(mPhi), -mRadius * cosf(mPhi) * sinf(mTheta), 1.0f);
-	XMVECTOR target = XMVectorZero();
+	XMVECTOR target = XMLoadFloat3(&mCenterPoint);
+	position += target;
 	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 
 	XMMATRIX view = XMMatrixLookAtLH(position, target, up);
@@ -196,7 +191,7 @@ void D3DToy::OnUpdate()
 
 	mCurrentFrameRes->passCB->CopyData(0, mMainPassConst);
 //Update light constants
-	mLights.pointLights[0].position = XMFLOAT3(200 * cos(2 * mTimer.CurrentTime()), 100.0f, 200 * sin(2 * mTimer.CurrentTime()));//Same as the cube
+	mLights.pointLights[0].position = XMFLOAT3(100 * cos(2 * mTimer.CurrentTime()), 100.0f, 100 * sin(2 * mTimer.CurrentTime()));//Between the cube and model
 	mCurrentFrameRes->lightCB->CopyData(0, mLights);
 }
 void D3DToy::OnResize()
@@ -634,11 +629,12 @@ void D3DToy::BuildGeoAndMat()
 		auto& m = mtlList[i];
 		auto material = std::make_unique<MaterialItem>();
 		material->matCBIndex = i;
-		material->name = m.mtlName;
 		material->texPath = m.texPath;
-		material->matConsts.diffuseAlbedo = XMFLOAT4(m.kd.x, m.kd.y, m.kd.z, 1.0f);
-		material->matConsts.fresnelR0 = XMFLOAT3(m.ni, m.ni, m.ni);
-		material->matConsts.shininess = 1 / m.ns; //greater smoother, 256 512
+		material->matConsts.ambientAlbedo = XMFLOAT4(m.ka.x, m.ka.y, m.ka.z, 0.0f);
+		material->matConsts.diffuseAlbedo = XMFLOAT4(m.kd.x, m.kd.y, m.kd.z, 0.0f);
+		material->matConsts.specularAlbedo = XMFLOAT4(m.ks.x, m.ks.y, m.ks.z, 0.0f);
+		material->matConsts.refraction = m.ni;
+		material->matConsts.roughness = m.ns; //will be transform to shininess = pow(2, (1 - mat.roughness) * 11)
 
 		//material->diffuseSRVHeapIndex
 		if (mTextures.find(material->texPath) == mTextures.end())
@@ -651,17 +647,18 @@ void D3DToy::BuildGeoAndMat()
 	}
 	auto defaultMtl = std::make_unique<MaterialItem>();
 	defaultMtl->matCBIndex = mtlList.size();
-	defaultMtl->name = "default";
-	defaultMtl->matConsts.diffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f);
-	defaultMtl->matConsts.fresnelR0 = XMFLOAT3(0.95f, 0.95f, 0.95f);
-	defaultMtl->matConsts.shininess = 16; //greater smoother, 256 512
+	defaultMtl->matConsts.ambientAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 0.0f);
+	defaultMtl->matConsts.diffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 0.0f);
+	defaultMtl->matConsts.specularAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 0.0f);
+	defaultMtl->matConsts.refraction = 1.0f;
+	defaultMtl->matConsts.roughness = 1.0f; 
 	mMaterialItems.emplace("default", std::move(defaultMtl));
-
 }
 void D3DToy::SetLights()
 {
-	mLights.ambientLight = XMFLOAT4(0.2f, 0.2f, 0.2f, 1.0f);
-	mLights.pointLights[0].position = XMFLOAT3(200 * cos(2 * mTimer.CurrentTime()), 100.0f, 200 * sin(2 * mTimer.CurrentTime()));//Same as the cube
+	mLights.ambientLight = XMFLOAT4(0.2f, 0.2f, 0.2f, 0.0f);
+
+	//mLights.pointLights[0].position = XMFLOAT3(200 * cos(2 * mTimer.CurrentTime()), 100.0f, 200 * sin(2 * mTimer.CurrentTime()));//Same as the cube
 	mLights.pointLights[0].falloffStart = 300.0f;
 	mLights.pointLights[0].falloffEnd = 1000.0f;
 	mLights.pointLights[0].strength = XMFLOAT3(1.0f, 1.0f, 1.0f);
@@ -803,6 +800,7 @@ void D3DToy::BuildSingleGeometry(std::vector<std::unique_ptr<RenderItem>>& riLis
 		v.pos = meshData.vertices[i].position;
 		v.normal = meshData.vertices[i].normal;
 		v.texCoordinate = meshData.vertices[i].texCoordinate;
+		v.texCoordinate.y = 1 - v.texCoordinate.y; // ? v.texCoordinate.y *= -1
 		vertices.push_back(v);
 	}
 

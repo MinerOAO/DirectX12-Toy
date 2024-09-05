@@ -29,6 +29,13 @@ public:
 			float u, float v
 		) : position(px, py, pz), normal(nx, ny, nz), tangentU(tx, ty, tz), texCoordinate(u, v)
 		{}
+        bool operator==(const Vertex& v) const
+        {
+            return DirectX::XMVector3Equal(DirectX::XMLoadFloat3(&position), DirectX::XMLoadFloat3(&v.position))
+                && DirectX::XMVector3Equal(DirectX::XMLoadFloat3(&normal), DirectX::XMLoadFloat3(&v.normal))
+                && DirectX::XMVector3Equal(DirectX::XMLoadFloat3(&tangentU), DirectX::XMLoadFloat3(&v.tangentU))
+                && DirectX::XMVector2Equal(DirectX::XMLoadFloat2(&texCoordinate), DirectX::XMLoadFloat2(&v.texCoordinate));
+        }
 	};
 	struct IndicesGroup
 	{
@@ -51,7 +58,18 @@ public:
 private:
 	void BuildCylinderCap(float bottomR, float topR, float height, uint32_t slice, uint32_t stack, MeshData& meshData);
 };
-
+namespace std
+{
+    template<>
+    struct hash<GeometryGenerator::Vertex> {
+        size_t operator()(const GeometryGenerator::Vertex& v) const {
+            // 一个简单的哈希函数实现
+            return ((hash<float>()(v.position.x)
+                ^ (hash<float>()(v.texCoordinate.y) << 1)) >> 1)
+                ^ (hash<float>()(v.normal.z) << 1);
+        }
+    };
+}
 struct SubmeshGeometry
 {
     UINT indexCount = 0;

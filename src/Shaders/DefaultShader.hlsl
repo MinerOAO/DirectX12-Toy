@@ -5,11 +5,13 @@ cbuffer cbPerObject : register(b0)
 }
 cbuffer cbMaterial : register(b1)
 {
+    float4 ambientAlbedo;
     float4 diffuseAlbedo;
-    float3 fresnelR0;
-    float shininess;
+    float4 specularAlbedo;
 	// Used in texture mapping.
     float4x4 matTransform;
+    float refraction;
+    float roughness;
 }
 cbuffer cbPassObject : register(b2)
 {
@@ -39,9 +41,9 @@ cbuffer cbLight : register(b3)
 SamplerState defaultSampler : register(s0);
 Texture2D diffuseMap : register(t0);
 
-float4 ComputeLighting(Material m, float3 pos, float3 normal, float3 toEye, float3 shadowFactor)
+float4 ComputeLighting(Material m, float3 pos, float3 normal, float3 toEye)
 {
-    float3 result = 0.0f;
+    float4 result = 0.0f;
     int i = 0;
     //Diferences between lights: lightVec and strength calc ways
     
@@ -50,9 +52,7 @@ float4 ComputeLighting(Material m, float3 pos, float3 normal, float3 toEye, floa
         //toEye->Point to eye
         //lightVec -> point to light source
         float3 lightVec = -directionalLights[i].direction;
-        //Lambert cosine law
-        float3 lightStrength = pointLights[i].strength * max(dot(lightVec, normal), 0.0f);
-        result += BlinnPhong(lightStrength, lightVec, normal, toEye, m);;
+        result += BlinnPhong(m, directionalLights[i].strength, lightVec, normal, toEye);;
     }
     for (i = 0; i < MAX_POINT_LIGHT_SOURCE_NUM; ++i)
     {
@@ -61,11 +61,10 @@ float4 ComputeLighting(Material m, float3 pos, float3 normal, float3 toEye, floa
         if (distance > pointLights[i].falloffEnd)
             continue;
         lightVec = normalize(lightVec);
-        //Lambert cosine law
-        float3 lightStrength = pointLights[i].strength * max(dot(lightVec, normal), 0.0f);
         //Attenuation
+        float3 lightStrength = pointLights[i].strength;
         lightStrength *= Attenuation(pointLights[i].falloffStart, pointLights[i].falloffEnd, distance);
-        result += BlinnPhong(lightStrength, lightVec, normal, toEye, m);
+        result += BlinnPhong(m, lightStrength, lightVec, normal, toEye);
     }
     for (i = 0; i < MAX_SPOT_LIGHT_SOURCE_NUM; ++i)
     {
@@ -74,17 +73,14 @@ float4 ComputeLighting(Material m, float3 pos, float3 normal, float3 toEye, floa
         if (distance > spotLights[i].falloffEnd)
             continue;
         lightVec = normalize(lightVec);
-        //Lambert cosine law
-        float3 lightStrength = spotLights[i].strength * max(dot(lightVec, normal), 0.0f);
         //Attenuation
-        lightStrength *= Attenuation(spotLights[i].falloffStart, spotLights[i].falloffEnd, distance);
+        float3 lightStrength = spotLights[i].strength * Attenuation(spotLights[i].falloffStart, spotLights[i].falloffEnd, distance);
         //Spot
-        float spotFactor = pow(max(dot(-lightVec, spotLights[i].direction), 0.0f), spotLights[i].spotPower);
-        lightStrength *= spotFactor;
+        lightStrength *= pow(max(dot(-lightVec, spotLights[i].direction), 0.0f), spotLights[i].spotPower);
         
-        result += BlinnPhong(lightStrength, lightVec, normal, toEye, m);
+        result += BlinnPhong(m, lightStrength, lightVec, normal, toEye);
     }
-    return float4(result, 0.0f);
+    return result;
 }
 
 void VS(float3 posL : POSITION, float3 normalL : NORMAL, float2 texC : TEXC,
@@ -105,12 +101,24 @@ float4 PS(float4 posH : SV_POSITION, float3 posW : POSITION, float3 normalW : NO
     normalW = normalize(normalW);
     float3 toEyeW = normalize(eyePosWorld - posW);
     
-    //indirect lighting
-    float4 ambient = ambientLight * diffuseAlbedo;
-    //direct lighting
-    float4 dAlbedo = diffuseMap.Sample(defaultSampler, texCoord) * diffuseAlbedo;
-    Material mat = { dAlbedo, fresnelR0, shininess };
-    float4 diffuseSpec = ComputeLighting(mat, posW, normalW, toEyeW, 1.0f);
+    float4 ka = ambientAlbedo, kd = 0.0f, ks = specularAlbedo;
+    if (length(diffuseAlbedo) != 0.0f)
+        kd = diffuseAlbedo;
+    else
+        kd = diffuseMap.Sample(defaultSampler, texCoord);
     
-    return ambient + diffuseSpec;
+    ks *= kd;
+    ka *= kd;
+    
+    //direct lighting
+    Material mat = { kd, ks, roughness };
+    float4 diffuseSpec = ComputeLighting(mat, posW, normalW, toEyeW);
+    
+    //indirect lighting
+    float4 ambient = ambientLight * ka;
+    
+    //tone mapping to [0,1].
+    float4 result = ambient + diffuseSpec;
+    //result = result / (result + 1.0f);
+    return result;
 }

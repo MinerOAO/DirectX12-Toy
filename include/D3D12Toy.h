@@ -47,6 +47,7 @@ protected:
 	float mPhi = 0.0f; //y
 	float mTheta = 0.0f; //xz plane
 	float mRadius = 500.0f; //r
+	XMFLOAT3 mCenterPoint = XMFLOAT3(0.0f, 100.0f, 0.0f);
 	const float zoomSense = 0.1f; // Speed of zooming
 	const float mouseSense = 0.25f; //Speed of mouse
 
@@ -79,11 +80,13 @@ private:
 	//One constant one material
 	struct MaterialConstants
 	{
+		DirectX::XMFLOAT4 ambientAlbedo;
 		DirectX::XMFLOAT4 diffuseAlbedo;
-		DirectX::XMFLOAT3 fresnelR0;
-		float shininess;
+		DirectX::XMFLOAT4 specularAlbedo;
 		// Used in the chapter on texture mapping.
 		DirectX::XMFLOAT4X4 matTransform;
+		float refraction;
+		float roughness;
 	};
 	const UINT matCBByteSize = CalcConstBufferByteSizes(sizeof(MaterialConstants));
 	struct LightConstants
@@ -166,8 +169,6 @@ private:
 		{
 			XMStoreFloat4x4(&matConsts.matTransform, XMMatrixIdentity());
 		}
-		//name for lookup
-		std::string name;
 		//Index in CB 
 		int matCBIndex = -1;
 		//Texture map path

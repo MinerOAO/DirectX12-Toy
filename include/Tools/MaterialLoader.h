@@ -23,7 +23,7 @@ public:
 		DirectX::XMFLOAT3 ka, kd, ks;//ambient, diffuse, spec
 		DirectX::XMFLOAT3 tf; //transmission filter   (transparent)
 		float ni; //refraction
-		float ns; //Specular, 1 / shininess
+		float ns; //Specular
 	};
 	MaterialLoader()
 	{

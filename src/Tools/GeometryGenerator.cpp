@@ -332,11 +332,12 @@ void GeometryGenerator::ReadObjFile(std::string path, std::string fileName, std:
 	std::string meshName;
 
 	int currentVertexIndex = 0;
-	int v = 0, vt = 0, vn = 0;
 
 	std::vector<DirectX::XMFLOAT3> tempV;
 	std::vector<DirectX::XMFLOAT2> tempVt;
 	std::vector<DirectX::XMFLOAT3> tempVn;
+
+	std::unordered_map<Vertex, int> vertexIndexMap;
 
 	while (std::getline(objFile, line))
 	{
@@ -385,21 +386,21 @@ void GeometryGenerator::ReadObjFile(std::string path, std::string fileName, std:
 					auto vertexInfo = SplitString(lineParts[i], '/');
 					int vertexIndex = std::stoi(vertexInfo[0]) - 1;//Index in file starts from 1
 					DirectX::XMFLOAT3& position = tempV[vertexIndex]; //v
-					//Jump over according to mark
-					if (position.x == D3D12_MAX_POSITION_VALUE)
-					{
-						currentIdxGroup.indices.push_back(position.z);
-						continue;
-					}
 					DirectX::XMFLOAT2& tex = tempVt[std::stoi(vertexInfo[1]) - 1]; //vt
 					DirectX::XMFLOAT3& normal = tempVn[std::stoi(vertexInfo[2]) - 1]; //vn
-					currentMeshData.vertices.push_back(Vertex(position, normal, DirectX::XMFLOAT3(), tex));
 
-					int indexInCurrentMesh = currentMeshData.vertices.size() - 1;
-					currentIdxGroup.indices.push_back(indexInCurrentMesh);
-					//Mark this vertex
-					position.x = D3D12_MAX_POSITION_VALUE;
-					position.z = indexInCurrentMesh;
+					Vertex v(position, normal, DirectX::XMFLOAT3(), tex);
+					if (vertexIndexMap.find(v) == vertexIndexMap.end())
+					{
+						currentMeshData.vertices.push_back(v);
+						int indexInCurrentMesh = currentMeshData.vertices.size() - 1;
+						currentIdxGroup.indices.push_back(indexInCurrentMesh);
+						vertexIndexMap.emplace(v, indexInCurrentMesh);
+					}
+					else
+					{
+						currentIdxGroup.indices.push_back(vertexIndexMap[v]);
+					}
 				}
 			}
 			//MeshData Vertices
@@ -410,7 +411,6 @@ void GeometryGenerator::ReadObjFile(std::string path, std::string fileName, std:
 					std::stof(lineParts[2]),
 					std::stof(lineParts[3])
 				));
-				++v;
 			}
 			if (lineParts[0] == "vt")
 			{
@@ -418,7 +418,6 @@ void GeometryGenerator::ReadObjFile(std::string path, std::string fileName, std:
 					std::stof(lineParts[1]),
 					std::stof(lineParts[2])
 				));
-				++vt;
 			}
 			if (lineParts[0] == "vn")
 			{
@@ -427,20 +426,14 @@ void GeometryGenerator::ReadObjFile(std::string path, std::string fileName, std:
 					std::stof(lineParts[2]),
 					std::stof(lineParts[3])
 				));
-				++vn;
 			}
 		}
 	}
 	currentMeshData.idxGroups.push_back(currentIdxGroup);
 	meshDataGroup.push_back(currentMeshData); //last one
 
-	OutputDebugString(std::to_wstring(v).c_str());
-	OutputDebugString(std::to_wstring(vt).c_str());
-	OutputDebugString(std::to_wstring(vn).c_str());
-
 	objFile.close();
 }
-
 void GeometryGenerator::ReadObjFileInOne(std::string path, std::string fileName, GeometryGenerator::MeshData& storage)
 {
 	std::ifstream objFile;
