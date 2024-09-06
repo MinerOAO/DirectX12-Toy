@@ -48,6 +48,9 @@
     <ClInclude Include="include\Tools\MaterialLoader.h">
       <Filter>Header Files\Tools</Filter>
     </ClInclude>
+    <ClInclude Include="include\Tools\stb_image.h">
+      <Filter>Header Files\Tools</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\DXSample.cpp">

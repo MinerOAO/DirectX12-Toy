@@ -1,9 +1,9 @@
 #pragma once
 #include "stdafx.h"
 #include "DXSampleHelper.h"
-#include "Tools/MaterialLoader.h"
 #include <fstream>
 #include <unordered_set>
+#include "Tools/MaterialLoader.h"
 
 class GeometryGenerator
 {

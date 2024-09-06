@@ -34,7 +34,7 @@ void CreateDefaultBuffer(
 	D3D12_SUBRESOURCE_DATA subResourceData = {};
 	subResourceData.pData = data;
 	subResourceData.RowPitch = byteSize;
-	subResourceData.SlicePitch = byteSize;
+	subResourceData.SlicePitch = subResourceData.RowPitch;
 
 	cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(defaultBuffer.Get(), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_COPY_DEST));
 	// At a high level, the helper function UpdateSubresources

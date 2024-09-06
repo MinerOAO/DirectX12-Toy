@@ -467,11 +467,12 @@ void D3DToy::CreateCBVAndSRVDescHeap()
 	for (auto& tex : mTextures)
 	{
 		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+		auto& texDesc = tex.second->resource->GetDesc();
 		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING; //default component order
-		srvDesc.Format = tex.second->resource->GetDesc().Format;// Same as tex resource, compressed:DXGI_FORMAT_BC3_UNORM, etc
+		srvDesc.Format = texDesc.Format;// Same as tex resource, compressed:DXGI_FORMAT_BC3_UNORM, etc
 		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 		srvDesc.Texture2D.MostDetailedMip = 0;
-		srvDesc.Texture2D.MipLevels = tex.second->resource->GetDesc().MipLevels; //texture related
+		srvDesc.Texture2D.MipLevels = texDesc.MipLevels; //texture related
 		srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
 
 		tex.second->diffuseSRVHeapIndex = i++;
@@ -800,7 +801,7 @@ void D3DToy::BuildSingleGeometry(std::vector<std::unique_ptr<RenderItem>>& riLis
 		v.pos = meshData.vertices[i].position;
 		v.normal = meshData.vertices[i].normal;
 		v.texCoordinate = meshData.vertices[i].texCoordinate;
-		v.texCoordinate.y = 1 - v.texCoordinate.y; // ? v.texCoordinate.y *= -1
+		//v.texCoordinate.y = 1 - v.texCoordinate.y; // ? v.texCoordinate.y *= -1
 		vertices.push_back(v);
 	}
 

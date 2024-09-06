@@ -1,3 +1,4 @@
+#define STB_IMAGE_IMPLEMENTATION
 #include "Tools/MaterialLoader.h"
 #include <fstream>
 #include <functional>
