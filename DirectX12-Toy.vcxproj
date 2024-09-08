@@ -138,6 +138,7 @@
     <ClInclude Include="include\DXSample.h" />
     <ClInclude Include="include\DXSampleHelper.h" />
     <ClInclude Include="include\stdafx.h" />
+    <ClInclude Include="include\Tools\Camera.h" />
     <ClInclude Include="include\Tools\GameTimer.h" />
     <ClInclude Include="include\Tools\GeometryGenerator.h" />
     <ClInclude Include="include\Tools\MaterialLoader.h" />
@@ -150,6 +151,7 @@
     <ClCompile Include="src\DXSampleHelper.cpp" />
     <ClCompile Include="src\Main.cpp" />
     <ClCompile Include="src\stdafx.cpp" />
+    <ClCompile Include="src\Tools\Camera.cpp" />
     <ClCompile Include="src\Tools\GameTimer.cpp" />
     <ClCompile Include="src\Tools\GeometryGenerator.cpp" />
     <ClCompile Include="src\Tools\MaterialLoader.cpp" />

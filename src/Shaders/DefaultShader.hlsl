@@ -22,13 +22,13 @@ cbuffer cbPassObject : register(b2)
     float4x4 viewProj;
     float4x4 inverseViewProj;
 		
-    float3 eyePosWorld;
-    float totalTime;
+    float4 eyePosWorld;
     
     float2 RTVSize;
     float2 invRTVSize;
     float nearZ;
     float farZ;
+    float totalTime;
 }
 cbuffer cbLight : register(b3)
 {
@@ -84,18 +84,17 @@ float4 ComputeLighting(Material m, float3 pos, float3 normal, float3 toEye)
 }
 
 void VS(float3 posL : POSITION, float3 normalL : NORMAL, float2 texC : TEXC,
-    out float4 posH : SV_POSITION, out float3 posW : POSITION, out float3 normalW : NORMAL, out float2 texCoord : TEXC)
+    out float4 posH : SV_POSITION, out float4 posW : POSITION, out float3 normalW : NORMAL, out float2 texCoord : TEXC)
 {
     //Transform to world space
-    float4 posWorld = mul(float4(posL, 1.0f), world);
-    posW = posWorld.xyz;
+    posW = mul(float4(posL, 1.0f), world);
     //Transform to homogeneous clip space
-    posH = mul(posWorld, viewProj);
+    posH = mul(posW, viewProj);
     // nonuniform scaling need to use inverse-transpose of world matrix (A^-1)T
     normalW = mul(normalL, (float3x3) world);
     texCoord = texC;
 }
-float4 PS(float4 posH : SV_POSITION, float3 posW : POSITION, float3 normalW : NORMAL, float2 texCoord : TEXC) : SV_TARGET
+float4 PS(float4 posH : SV_POSITION, float4 posW : POSITION, float3 normalW : NORMAL, float2 texCoord : TEXC) : SV_TARGET
 {
     //Interpolated normal may not be normalized
     normalW = normalize(normalW);

@@ -51,6 +51,9 @@
     <ClInclude Include="include\Tools\stb_image.h">
       <Filter>Header Files\Tools</Filter>
     </ClInclude>
+    <ClInclude Include="include\Tools\Camera.h">
+      <Filter>Header Files\Tools</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\DXSample.cpp">
@@ -78,6 +81,9 @@
       <Filter>Source Files\Tools</Filter>
     </ClCompile>
     <ClCompile Include="src\Tools\MaterialLoader.cpp">
+      <Filter>Source Files\Tools</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Tools\Camera.cpp">
       <Filter>Source Files\Tools</Filter>
     </ClCompile>
   </ItemGroup>

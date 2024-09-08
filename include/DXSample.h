@@ -50,7 +50,6 @@ protected:
     // Viewport dimensions.
     UINT mWidth;
     UINT mHeight;
-    float m_aspectRatio;
 
     // Adapter info.
     bool m_useWarpDevice;

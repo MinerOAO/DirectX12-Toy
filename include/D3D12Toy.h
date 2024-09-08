@@ -1,6 +1,7 @@
 #pragma once
 #include "DXSample.h"
 #include "Tools/GeometryGenerator.h"
+#include "Tools/Camera.h"
 
 constexpr auto MAX_DIRECT_LIGHT_SOURCE_NUM = 8;
 constexpr auto MAX_POINT_LIGHT_SOURCE_NUM = 8;
@@ -36,20 +37,9 @@ protected:
 
 	bool mWindowd = true;
 
-	float mFOV = 0.25 * XM_PI;
-	float nearZ = 10.0f;
-	float farZ = 10000.0f;
-	XMFLOAT4X4 mView, mProj;
-
 	static const int numFrameResources = 3;
 
-	XMFLOAT2 mLastMousePos;
-	float mPhi = 0.0f; //y
-	float mTheta = 0.0f; //xz plane
-	float mRadius = 500.0f; //r
-	XMFLOAT3 mCenterPoint = XMFLOAT3(0.0f, 100.0f, 0.0f);
-	const float zoomSense = 0.1f; // Speed of zooming
-	const float mouseSense = 0.25f; //Speed of mouse
+	std::unique_ptr<Camera> mCam;
 
 private:
 	// Constant data per-object.
@@ -68,13 +58,13 @@ private:
 		XMFLOAT4X4 viewProj;
 		XMFLOAT4X4 inverseViewProj;
 		
-		XMFLOAT3 eyePosWorld;
-		float totalTime;
+		XMFLOAT4 eyePosWorld;
 
 		XMFLOAT2 RTVSize;
 		XMFLOAT2 invRTVSize;
 		float nearZ;
 		float farZ;
+		float totalTime;
 	};
 	const UINT passCBByteSize = CalcConstBufferByteSizes(sizeof(PassConstants));
 	//One constant one material
@@ -226,9 +216,6 @@ private:
 	UINT mRTVDescSize; //Render Target View Descriptor Size
 	UINT mDSVDescSize; //Depth / Stencil
 	UINT mCBVDescSize; //Constant Buffer
-
-	D3D12_VIEWPORT mViewport; //Reset whenever commandlist is reset
-	D3D12_RECT mScissorRect;	//Reset whenever commandlist is reset
 
 	void CheckFeatureSupport();
 

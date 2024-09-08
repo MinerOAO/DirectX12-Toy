@@ -21,7 +21,6 @@ DXSample::DXSample(UINT width, UINT height, std::wstring name) :
     m_useWarpDevice(false)
 {
     mTimer = GameTimer();
-    m_aspectRatio = static_cast<float>(width) / static_cast<float>(height);
 }
 
 DXSample::~DXSample()

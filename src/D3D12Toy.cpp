@@ -3,9 +3,16 @@
 
 D3DToy::D3DToy(UINT width, UINT height, std::wstring name) : DXSample(width, height, name) 
 {
-	//Init proj
-	XMMATRIX p = XMMatrixPerspectiveFovLH(mFOV, m_aspectRatio, nearZ, farZ);
-	XMStoreFloat4x4(&mProj, p);
+	mCam = std::make_unique<Camera>(
+		width,
+		height,
+		500.0f,
+		0.25f * XM_PI,
+		10.0f,
+		10000.0f,
+		XMFLOAT3(0.0f, 1.0f, 0.0f),
+		XMFLOAT4(0.0f, 100.0f, 0.0f, 1.0f)
+	);
 }
 D3DToy::~D3DToy()
 {
@@ -17,32 +24,12 @@ D3DToy::~D3DToy()
 
 void D3DToy::OnMouseMove(int xPos, int yPos, bool updatePos)
 {
-	if (updatePos)
-	{
-		float yaw = XMConvertToRadians(mouseSense * static_cast<float>(xPos - mLastMousePos.x));
-		float pitch = XMConvertToRadians(mouseSense * static_cast<float>(yPos - mLastMousePos.y));
-
-		mPhi += pitch;
-		mTheta += yaw;
-
-		//limits pitch angle
-		mPhi = mPhi > XM_PI / 2 ? (XM_PI / 2 - FLT_EPSILON) : mPhi;
-		mPhi = mPhi < -XM_PI / 2 ? (-XM_PI / 2 + FLT_EPSILON) : mPhi; //cosf flips around pi/2, due to float precision?
-		//view matrix update in OnUpdate() pass constants.
-	}
-	//Keep tracking position, avoiding sudden movement.
-	mLastMousePos.x = xPos;
-	mLastMousePos.y = yPos;
+	mCam->OnMouseMove(xPos, yPos, updatePos);
 }
 
 void D3DToy::OnZoom(short delta)
 {
-	mRadius -= delta * zoomSense;
-	if (mRadius < 0.1f)
-	{
-		mRadius = 0.1f;
-	}
-	//view matrix update in OnUpdate() pass constants.
+	mCam->OnZoom(delta);
 }
 
 void D3DToy::OnInit()
@@ -156,19 +143,10 @@ void D3DToy::OnUpdate()
 		}
 	}
 	//Update pass constants (pass, lights)
-	// sin* cos, cos, sin * sin?
-	// cos * cos, sin, cos * sin?
-	XMVECTOR position = XMVectorSet(mRadius * cosf(mPhi) * cosf(mTheta), mRadius * sinf(mPhi), -mRadius * cosf(mPhi) * sinf(mTheta), 1.0f);
-	XMVECTOR target = XMLoadFloat3(&mCenterPoint);
-	position += target;
-	XMVECTOR up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
 
-	XMMATRIX view = XMMatrixLookAtLH(position, target, up);
-	XMStoreFloat4x4(&mView, view);
-
-	XMMATRIX proj = XMLoadFloat4x4(&mProj);
+	XMMATRIX view, proj;
+	mCam->OnUpdate(view, proj);
 	XMMATRIX viewProj = XMMatrixMultiply(view, proj);
-
 	XMMATRIX invView = XMMatrixInverse(&XMMatrixDeterminant(view), view);
 	XMMATRIX invProj = XMMatrixInverse(&XMMatrixDeterminant(proj), proj);
 	XMMATRIX invViewProj = XMMatrixInverse(&XMMatrixDeterminant(viewProj), viewProj);
@@ -180,13 +158,13 @@ void D3DToy::OnUpdate()
 	XMStoreFloat4x4(&mMainPassConst.viewProj, XMMatrixTranspose(viewProj));
 	XMStoreFloat4x4(&mMainPassConst.inverseViewProj, XMMatrixTranspose(invViewProj));
 
-	XMStoreFloat3(&mMainPassConst.eyePosWorld, position);
+	mMainPassConst.eyePosWorld = mCam->mPosition;
 
 	mMainPassConst.RTVSize = XMFLOAT2(mWidth, mHeight);
 	mMainPassConst.invRTVSize = XMFLOAT2(1.0f / mWidth, 1.0f / mHeight);
 
-	mMainPassConst.nearZ = nearZ;
-	mMainPassConst.farZ = farZ;
+	mMainPassConst.nearZ = mCam->nearZ;
+	mMainPassConst.farZ = mCam->farZ;
 	mMainPassConst.totalTime = mTimer.CurrentTime();
 
 	mCurrentFrameRes->passCB->CopyData(0, mMainPassConst);
@@ -197,9 +175,7 @@ void D3DToy::OnUpdate()
 void D3DToy::OnResize()
 {
 	DXSample::OnResize();
-	//When resized, compute projection matrix
-	XMMATRIX p = XMMatrixPerspectiveFovLH(mFOV, m_aspectRatio, nearZ, farZ);
-	XMStoreFloat4x4(&mProj, p);
+	mCam->OnResize();
 }
 void D3DToy::OnRender()
 {
@@ -209,17 +185,8 @@ void D3DToy::OnRender()
 	//set initial state(triangle) for next pass
 	ThrowIfFailed(mCommandList->Reset(mCurrentFrameRes->cmdAllocator.Get(), mPSOMap["triangle"].Get()));
 
-	//Set viewport, scissorRect
-	mViewport.TopLeftX = 0.0f;
-	mViewport.TopLeftY = 0.0f;
-	mViewport.Width = static_cast<float>(mWidth);
-	mViewport.Height = static_cast<float>(mHeight);
-	mViewport.MinDepth = 0.0f;
-	mViewport.MaxDepth = 1.0f;
-
-	mScissorRect = { 0, 0, static_cast<long>(mWidth), static_cast<long>(mHeight) };
-	mCommandList->RSSetViewports(1, &mViewport); //cannot specify multiple viewports to the same render target
-	mCommandList->RSSetScissorRects(1, &mScissorRect); //cannot specify multiple scissor rectangles on the same render target
+	mCommandList->RSSetViewports(1, &mCam->mViewport); //cannot specify multiple viewports to the same render target
+	mCommandList->RSSetScissorRects(1, &mCam->mScissorRect); //cannot specify multiple scissor rectangles on the same render target
 
 	//Indicate a state transition on the resource usage
 	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
@@ -254,14 +221,6 @@ void D3DToy::OnRender()
 	//Change pipelinestate
 	mCommandList->SetPipelineState(mPSOMap["line"].Get());
 	DrawRenderItems(mCommandList.Get(), mWireFrameRenderItems);
-
-	//mCommandList->IASetVertexBuffers(0, 1, &mGeometry->VertexBufferView());
-	//mCommandList->IASetIndexBuffer(&mGeometry->IndexBufferView());
-	//mCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-	//mCommandList->SetGraphicsRootDescriptorTable(0, mCBVHeap->GetGPUDescriptorHandleForHeapStart());
-
-	//mCommandList->DrawIndexedInstanced(mGeometry->drawArgs["box"].indexCount, 1, 0, 0, 0);
 
 	//State transition
 	mCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
@@ -527,7 +486,7 @@ void D3DToy::CreateRootSignature()
 
 	// A root signature is an array of root parameters.
 	// Root parameter can be a table, root descriptor or root constants.
-	CD3DX12_ROOT_PARAMETER slotRootParameter[5];
+	CD3DX12_ROOT_PARAMETER slotRootParameter[5] = {};
 	//Create a single descriptor table of CBVs
 	CD3DX12_DESCRIPTOR_RANGE cbvTable0 = {}, cbvTableMaterial = {}, srvTable = {};
 	cbvTable0.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0); //Set baseShaderRegister 0 -> buffer0(b0)
@@ -652,7 +611,7 @@ void D3DToy::BuildGeoAndMat()
 	defaultMtl->matConsts.diffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 0.0f);
 	defaultMtl->matConsts.specularAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 0.0f);
 	defaultMtl->matConsts.refraction = 1.0f;
-	defaultMtl->matConsts.roughness = 1.0f; 
+	defaultMtl->matConsts.roughness = 0.5f; 
 	mMaterialItems.emplace("default", std::move(defaultMtl));
 }
 void D3DToy::SetLights()

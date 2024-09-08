@@ -73,8 +73,9 @@ public:
 
 		D3D12_SUBRESOURCE_DATA textureData = {};
 		textureData.pData = tex;
+		//one row size
 		textureData.RowPitch = texWidth * singlePixelSize;
-		//?
+		//total 2D size?
 		textureData.SlicePitch = textureData.RowPitch * texHeight;
 
 		//CommandList*, defaultHeap*, uploadHeap*(intermediate), intermediateOffset, firstSubRes, NumSubRes, SubResource*
