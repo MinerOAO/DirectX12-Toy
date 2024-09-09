@@ -26,8 +26,9 @@ int Win32Application::Run(DXSample* pSample, HINSTANCE hInstance, int nCmdShow)
     WNDCLASSEX windowClass = { 0 };
     windowClass.cbSize = sizeof(WNDCLASSEX);
     windowClass.style = CS_HREDRAW | CS_VREDRAW;
-    windowClass.lpfnWndProc = WindowProc;
+    windowClass.lpfnWndProc = WindowProc;//window procedure function
     windowClass.hInstance = hInstance;
+    windowClass.hIcon = LoadIcon(NULL, IDI_INFORMATION);
     windowClass.hCursor = LoadCursor(NULL, IDC_ARROW);
     windowClass.lpszClassName = L"DXSampleClass";
     RegisterClassEx(&windowClass);
@@ -76,6 +77,8 @@ int Win32Application::Run(DXSample* pSample, HINSTANCE hInstance, int nCmdShow)
 }
 
 // Main message handler for the sample.
+// Window procedure
+// wParam: specifies the virtual key code of the specific key that was pressed
 LRESULT CALLBACK Win32Application::WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     DXSample* pSample = reinterpret_cast<DXSample*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
@@ -110,9 +113,11 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND hWnd, UINT message, WPARAM wP
         pSample->OnRender();
         break;
     case WM_DESTROY:
+        //MessageBox()
         PostQuitMessage(0);
         break;
     default:
+        //The messages a window does not handle should be forwarded to the default window procedure
         return DefWindowProc(hWnd, message, wParam, lParam);    // Handle any messages the switch statement didn't.
     }  
     return 0;

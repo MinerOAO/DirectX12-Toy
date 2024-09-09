@@ -19,10 +19,12 @@ class DXSample;
 class Win32Application
 {
 public:
+    //message loop
     static int Run(DXSample* pSample, HINSTANCE hInstance, int nCmdShow);
     static HWND GetHwnd() { return m_hwnd; }
 
 protected:
+    // window¡¯s window procedure
     static LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 
 private:

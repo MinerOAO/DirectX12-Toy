@@ -83,8 +83,8 @@ float4 ComputeLighting(Material m, float3 pos, float3 normal, float3 toEye)
     return result;
 }
 
-void VS(float3 posL : POSITION, float3 normalL : NORMAL, float2 texC : TEXC,
-    out float4 posH : SV_POSITION, out float4 posW : POSITION, out float3 normalW : NORMAL, out float2 texCoord : TEXC)
+void VS(float3 posL : POSITION, float3 normalL : NORMAL,
+    out float4 posH : SV_POSITION, out float4 posW : POSITION, out float3 normalW : NORMAL, inout float2 texC : TEXC)//Sequence order matters
 {
     //Transform to world space
     posW = mul(float4(posL, 1.0f), world);
@@ -92,7 +92,6 @@ void VS(float3 posL : POSITION, float3 normalL : NORMAL, float2 texC : TEXC,
     posH = mul(posW, viewProj);
     // nonuniform scaling need to use inverse-transpose of world matrix (A^-1)T
     normalW = mul(normalL, (float3x3) world);
-    texCoord = texC;
 }
 float4 PS(float4 posH : SV_POSITION, float4 posW : POSITION, float3 normalW : NORMAL, float2 texCoord : TEXC) : SV_TARGET
 {
