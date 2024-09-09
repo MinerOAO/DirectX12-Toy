@@ -169,7 +169,7 @@ void D3DToy::OnUpdate()
 
 	mCurrentFrameRes->passCB->CopyData(0, mMainPassConst);
 //Update light constants
-	mLights.pointLights[0].position = XMFLOAT3(100 * cos(2 * mTimer.CurrentTime()), 100.0f, 100 * sin(2 * mTimer.CurrentTime()));//Between the cube and model
+	mLights.pointLights[0].position = XMFLOAT3(200 * cos(2 * mTimer.CurrentTime()), 100.0f, 100 * sin(2 * mTimer.CurrentTime()));//Between the cube and model
 	mCurrentFrameRes->lightCB->CopyData(0, mLights);
 }
 void D3DToy::OnResize()
@@ -611,12 +611,12 @@ void D3DToy::BuildGeoAndMat()
 	defaultMtl->matConsts.diffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 0.0f);
 	defaultMtl->matConsts.specularAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 0.0f);
 	defaultMtl->matConsts.refraction = 1.0f;
-	defaultMtl->matConsts.roughness = 0.5f; 
+	defaultMtl->matConsts.roughness = 0.1f; 
 	mMaterialItems.emplace("default", std::move(defaultMtl));
 }
 void D3DToy::SetLights()
 {
-	mLights.ambientLight = XMFLOAT4(0.2f, 0.2f, 0.2f, 0.0f);
+	mLights.ambientLight = XMFLOAT4(0.1f, 0.1f, 0.1f, 0.0f);
 
 	//mLights.pointLights[0].position = XMFLOAT3(200 * cos(2 * mTimer.CurrentTime()), 100.0f, 200 * sin(2 * mTimer.CurrentTime()));//Same as the cube
 	mLights.pointLights[0].falloffStart = 300.0f;
@@ -643,7 +643,7 @@ void D3DToy::CreatePipelineStateObject()
 	//Create shader desc
 	//psoDesc.VS = { reinterpret_cast<BYTE*>(vertexShader->GetBufferPointer()), vertexShader->GetBufferSize() };
 	//psoDesc.PS = { reinterpret_cast<BYTE*>(pixelShader->GetBufferPointer()), pixelShader->GetBufferSize() };
-	//gDefaultVertexShader From inc file
+	//gDefaultVertexShader, gDefaultPixelShader from inc file
 	psoDesc.VS = { gDefaultVertexShader, sizeof(gDefaultVertexShader) };
 	psoDesc.PS = { gDefaultPixelShader, sizeof(gDefaultPixelShader) };
 	psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
