@@ -58,7 +58,7 @@ inline UINT CalcConstBufferByteSizes(UINT byteSize)
     // 512
     return (byteSize + 255) & ~255;
 }
-ComPtr<ID3DBlob> CompileShader(const std::wstring& filename, const D3D_SHADER_MACRO* defines, const std::string& entrypointName, const std::string& target);
+ComPtr<ID3DBlob> CompileShaderFromFile(const std::wstring& filename, const D3D_SHADER_MACRO* defines, const std::string& entrypointName, const std::string& target);
 ComPtr<ID3DBlob> LoadBinary(const std::wstring& filename);
 
 template<typename T>

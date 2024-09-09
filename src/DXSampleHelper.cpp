@@ -50,7 +50,7 @@ void CreateDefaultBuffer(
 }
 
 #ifdef D3D_COMPILE_STANDARD_FILE_INCLUDE
-ComPtr<ID3DBlob> CompileShader(const std::wstring& filename, const D3D_SHADER_MACRO* defines, const std::string& entrypointName, const std::string& target)
+ComPtr<ID3DBlob> CompileShaderFromFile(const std::wstring& filename, const D3D_SHADER_MACRO* defines, const std::string& entrypointName, const std::string& target)
 {
 	UINT compileFlags = 0;
 #if defined(_DEBUG) || defined(DBG)
@@ -73,7 +73,6 @@ ComPtr<ID3DBlob> CompileShader(const std::wstring& filename, const D3D_SHADER_MA
 	return byteCode;
 }
 #endif
-
 ComPtr<ID3DBlob> LoadBinary(const std::wstring& filename)
 {
 	std::ifstream fin(filename, std::ios::binary);

@@ -3,6 +3,10 @@
 #include "Tools/GeometryGenerator.h"
 #include "Tools/Camera.h"
 
+#include "CompiledShaders/DefaultVertexShader.inc"
+#include "CompiledShaders/DefaultPixelShader.inc"
+#include "CompiledShaders/GridPixelShader.inc"
+
 constexpr auto MAX_DIRECT_LIGHT_SOURCE_NUM = 8;
 constexpr auto MAX_POINT_LIGHT_SOURCE_NUM = 8;
 constexpr auto MAX_SPOT_LIGHT_SOURCE_NUM = 4;

@@ -625,8 +625,10 @@ void D3DToy::SetLights()
 }
 void D3DToy::CreatePipelineStateObject()
 {
-	auto vertexShader = CompileShader(L"src\\Shaders\\DefaultShader.hlsl", nullptr, "VS", "vs_5_0");
-	auto pixelShader = CompileShader(L"src\\Shaders\\DefaultShader.hlsl", nullptr, "PS", "ps_5_0");
+	//Compile at runtime
+	//auto vertexShader = CompileShaderFromFile(L"src\\Shaders\\DefaultVertexShader.hlsl", nullptr, "VS", "vs_5_0");
+	//auto pixelShader = CompileShaderFromFile(L"src\\Shaders\\DefaultPixelShader.hlsl", nullptr, "PS", "ps_5_0");
+
 	//INput element Desc
 	std::vector<D3D12_INPUT_ELEMENT_DESC> inputLayout = {
 		// SemanticName, SemanticIndex, Format, InputSlot,  AlignedByteOffset, InputSlotClass(PER VERTEX / INSTANCE), InstanceDataStepRate
@@ -639,8 +641,11 @@ void D3DToy::CreatePipelineStateObject()
 	psoDesc.InputLayout = { inputLayout.data(), (UINT)inputLayout.size() };
 	psoDesc.pRootSignature = mRootSignature.Get();
 	//Create shader desc
-	psoDesc.VS = { reinterpret_cast<BYTE*>(vertexShader->GetBufferPointer()), vertexShader->GetBufferSize() };
-	psoDesc.PS = { reinterpret_cast<BYTE*>(pixelShader->GetBufferPointer()), pixelShader->GetBufferSize() };
+	//psoDesc.VS = { reinterpret_cast<BYTE*>(vertexShader->GetBufferPointer()), vertexShader->GetBufferSize() };
+	//psoDesc.PS = { reinterpret_cast<BYTE*>(pixelShader->GetBufferPointer()), pixelShader->GetBufferSize() };
+	//gDefaultVertexShader From inc file
+	psoDesc.VS = { gDefaultVertexShader, sizeof(gDefaultVertexShader) };
+	psoDesc.PS = { gDefaultPixelShader, sizeof(gDefaultPixelShader) };
 	psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
 	psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 	psoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);
@@ -654,8 +659,7 @@ void D3DToy::CreatePipelineStateObject()
 	ThrowIfFailed(mDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mPSOMap["triangle"])));
 
 	//Grid PSO
-	pixelShader = CompileShader(L"src\\Shaders\\GridPixelShader.hlsl", nullptr, "PS", "ps_5_0");
-	psoDesc.PS = { reinterpret_cast<BYTE*>(pixelShader->GetBufferPointer()), pixelShader->GetBufferSize() };
+	psoDesc.PS = { gGridPixelShader, sizeof(gGridPixelShader) };
 	psoDesc.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
 	psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
 	ThrowIfFailed(mDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mPSOMap["line"])));
