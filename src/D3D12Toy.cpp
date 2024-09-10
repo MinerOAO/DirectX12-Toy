@@ -31,7 +31,20 @@ void D3DToy::OnZoom(short delta)
 {
 	mCam->OnZoom(delta);
 }
-
+void D3DToy::OnKeyDown(UINT8 key)
+{
+	switch (key)
+	{
+	case 'S':
+		if (mCurrentInitialPSO == mPSOMap["triangle"])
+			mCurrentInitialPSO = mPSOMap["line"];
+		else
+			mCurrentInitialPSO = mPSOMap["triangle"];
+		break;
+	default:
+		break;
+	}
+}
 void D3DToy::OnInit()
 {
 #if defined(DEBUG) || defined(_DEBUG)
@@ -124,7 +137,7 @@ void D3DToy::OnUpdate()
 			ObjectConstants objConst;
 			XMMATRIX world = XMMatrixIdentity();
 			XMMATRIX rotation = XMMatrixRotationY(mTimer.CurrentTime());
-			XMMATRIX trans = XMMatrixTranslation(200 * cos(2 * mTimer.CurrentTime()), 100.0f, 200 * sin(2 * mTimer.CurrentTime()));
+			XMMATRIX trans = XMMatrixTranslation(210 * cos(2 * mTimer.CurrentTime()), 100.0f, 210 * sin(2 * mTimer.CurrentTime()));
 			world = XMMatrixMultiply(trans, world);
 			world = XMMatrixMultiply(rotation, world);
 			XMStoreFloat4x4(&objConst.world, XMMatrixTranspose(world));
@@ -169,7 +182,7 @@ void D3DToy::OnUpdate()
 
 	mCurrentFrameRes->passCB->CopyData(0, mMainPassConst);
 //Update light constants
-	mLights.pointLights[0].position = XMFLOAT3(200 * cos(2 * mTimer.CurrentTime()), 100.0f, 100 * sin(2 * mTimer.CurrentTime()));//Between the cube and model
+	mLights.pointLights[0].position = XMFLOAT3(200 * cos(2 * mTimer.CurrentTime()), 100.0f, 200 * sin(2 * mTimer.CurrentTime()));//Between the cube and model
 	mCurrentFrameRes->lightCB->CopyData(0, mLights);
 }
 void D3DToy::OnResize()
@@ -183,7 +196,7 @@ void D3DToy::OnRender()
 	ThrowIfFailed(mCurrentFrameRes->cmdAllocator->Reset());
 	//command list can be reset after it has been added to the command queue 
 	//set initial state(triangle) for next pass
-	ThrowIfFailed(mCommandList->Reset(mCurrentFrameRes->cmdAllocator.Get(), mPSOMap["triangle"].Get()));
+	ThrowIfFailed(mCommandList->Reset(mCurrentFrameRes->cmdAllocator.Get(), mCurrentInitialPSO.Get()));
 
 	mCommandList->RSSetViewports(1, &mCam->mViewport); //cannot specify multiple viewports to the same render target
 	mCommandList->RSSetScissorRects(1, &mCam->mScissorRect); //cannot specify multiple scissor rectangles on the same render target
@@ -594,7 +607,7 @@ void D3DToy::BuildGeoAndMat()
 		material->matConsts.diffuseAlbedo = XMFLOAT4(m.kd.x, m.kd.y, m.kd.z, 0.0f);
 		material->matConsts.specularAlbedo = XMFLOAT4(m.ks.x, m.ks.y, m.ks.z, 0.0f);
 		material->matConsts.refraction = m.ni;
-		material->matConsts.roughness = m.ns; //will be transform to shininess = pow(2, (1 - mat.roughness) * 11)
+		material->matConsts.roughness = 1000.0f - min(1000.0f, m.ns); //transform to roughness.
 
 		//material->diffuseSRVHeapIndex
 		if (mTextures.find(material->texPath) == mTextures.end())
@@ -611,7 +624,7 @@ void D3DToy::BuildGeoAndMat()
 	defaultMtl->matConsts.diffuseAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 0.0f);
 	defaultMtl->matConsts.specularAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 0.0f);
 	defaultMtl->matConsts.refraction = 1.0f;
-	defaultMtl->matConsts.roughness = 0.1f; 
+	defaultMtl->matConsts.roughness = 1.0f; 
 	mMaterialItems.emplace("default", std::move(defaultMtl));
 }
 void D3DToy::SetLights()
@@ -657,6 +670,7 @@ void D3DToy::CreatePipelineStateObject()
 	psoDesc.SampleDesc.Quality = mMsaa ? (mMsaaQuality - 1) : 0;
 	psoDesc.DSVFormat = mDepthStencilBufferFormat;
 	ThrowIfFailed(mDevice->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&mPSOMap["triangle"])));
+	mCurrentInitialPSO = mPSOMap["triangle"];
 
 	//Grid PSO
 	psoDesc.PS = { gGridPixelShader, sizeof(gGridPixelShader) };

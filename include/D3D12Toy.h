@@ -27,6 +27,7 @@ public:
 
 	void OnMouseMove(int xPos, int yPos, bool updatePos) override;
 	void OnZoom(short delta) override;
+	void OnKeyDown(UINT8 key) override;
 
 protected:
 	const D3D_FEATURE_LEVEL mAPPFeatureLevel = D3D_FEATURE_LEVEL_11_0;
@@ -77,7 +78,7 @@ private:
 		DirectX::XMFLOAT4 ambientAlbedo;
 		DirectX::XMFLOAT4 diffuseAlbedo;
 		DirectX::XMFLOAT4 specularAlbedo;
-		// Used in the chapter on texture mapping.
+		// Used in texture mapping.
 		DirectX::XMFLOAT4X4 matTransform;
 		float refraction;
 		float roughness;
@@ -216,6 +217,7 @@ private:
 	ComPtr<ID3D12RootSignature> mRootSignature;
 
 	std::unordered_map<std::string, ComPtr<ID3D12PipelineState>> mPSOMap;
+	ComPtr<ID3D12PipelineState> mCurrentInitialPSO;
 
 	UINT mRTVDescSize; //Render Target View Descriptor Size
 	UINT mDSVDescSize; //Depth / Stencil

@@ -20,8 +20,8 @@ public:
 		std::string texPath;
 		DirectX::XMFLOAT3 ka, kd, ks;//ambient, diffuse, spec
 		DirectX::XMFLOAT3 tf; //transmission filter   (transparent)
-		float ni; //refraction
-		float ns; //Specular
+		float ni; //refraction, 0.001 to 10. A value of 1.0 means that light does not bend as it passes through an object.
+		float ns; //Specular, normally range from 0 to 1000. Higher value resulting in tighter highlight.
 	};
 	MaterialLoader()
 	{
