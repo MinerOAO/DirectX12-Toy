@@ -87,14 +87,14 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND hWnd, UINT message, WPARAM wP
     {
     case WM_CREATE:
         {
-            // Save the DXSample* passed in to CreateWindow.
             LPCREATESTRUCT pCreateStruct = reinterpret_cast<LPCREATESTRUCT>(lParam);
             SetWindowLongPtr(hWnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(pCreateStruct->lpCreateParams));
         }
         break;
-    case WM_EXITSIZEMOVE:
-        //Resize Event
-        pSample->OnResize();
+    case WM_SIZE:
+        //Resize Event, https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-size
+		//lower word of lParam is width, higher word is height
+		pSample->OnResize(LOWORD(lParam), HIWORD(lParam));
         break;
     case WM_MOUSEMOVE:
         pSample->OnMouseMove(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam), ((wParam & WM_LBUTTONDOWN) != 0));

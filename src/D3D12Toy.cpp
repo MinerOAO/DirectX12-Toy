@@ -57,6 +57,7 @@ void D3DToy::OnInit()
 	DXSample::OnInit();
 //Create Factory
 	ThrowIfFailed(CreateDXGIFactory1(IID_PPV_ARGS(&mFactory))); 
+//Create Adapter
 //Create Device
 	HRESULT deviceCreating = D3D12CreateDevice(nullptr, // default adapter
 		mAPPFeatureLevel, IID_PPV_ARGS(&mDevice));
@@ -185,10 +186,10 @@ void D3DToy::OnUpdate()
 	mLights.pointLights[0].position = XMFLOAT3(200 * cos(2 * mTimer.CurrentTime()), 100.0f, 200 * sin(2 * mTimer.CurrentTime()));//Between the cube and model
 	mCurrentFrameRes->lightCB->CopyData(0, mLights);
 }
-void D3DToy::OnResize()
+void D3DToy::OnResize(UINT nWidth, UINT nHeight)
 {
-	DXSample::OnResize();
-	mCam->OnResize();
+	DXSample::OnResize(nWidth, nHeight);
+	mCam->OnResize(mWidth, mHeight);
 }
 void D3DToy::OnRender()
 {

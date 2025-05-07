@@ -19,11 +19,11 @@ public:
 	void RecordPoint();
 
 private:
-	float mSecondsPerCount;
-	float mDeltaTime;
+	float mSecondsPerCount = 0.0f;
+	float mDeltaTime = 0.0f;
 
-	__int64 mStartTime;
-	__int64 mCurrentTime;
-	__int64 mRecordTime;
+	__int64 mStartTime = 0;
+	__int64 mCurrentTime = 0;
+	__int64 mRecordTime = 0;
 
 };

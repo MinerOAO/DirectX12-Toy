@@ -1,7 +1,7 @@
 #include <Tools/GameTimer.h>
 #include <stdafx.h>
 
-GameTimer::GameTimer() : mSecondsPerCount(0.0), mDeltaTime(0.0), mStartTime(0), mCurrentTime(0), mRecordTime(0)
+GameTimer::GameTimer()
 {
 	__int64 frequency;
 	QueryPerformanceFrequency((LARGE_INTEGER*) & frequency);

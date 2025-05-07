@@ -21,7 +21,7 @@ public:
 	~D3DToy() override;
 	void OnInit() override;
 	void OnUpdate() override;
-	void OnResize() override;
+	void OnResize(UINT nWidth, UINT nHeight) override;
 	void OnRender() override;
 	void OnDestroy() override;
 

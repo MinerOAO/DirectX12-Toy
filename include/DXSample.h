@@ -24,7 +24,7 @@ public:
 
     virtual void OnInit() = 0;
     virtual void OnUpdate() = 0;
-    virtual void OnResize() {}
+    virtual void OnResize(UINT nWidth, UINT nHeight);
     virtual void OnRender() = 0;
     virtual void OnDestroy() = 0;
 
@@ -42,7 +42,7 @@ public:
     void ParseCommandLineArgs(_In_reads_(argc) WCHAR* argv[], int argc);
 
 protected:
-    void GetHardwareAdapter(_In_ IDXGIFactory1* pFactory, _Outptr_result_maybenull_ IDXGIAdapter1** ppAdapter, DXGI_GPU_PREFERENCE GPUPrefrence);
+   // void GetHardwareAdapter(_In_ IDXGIFactory1* pFactory, _Outptr_result_maybenull_ IDXGIAdapter1** ppAdapter, DXGI_GPU_PREFERENCE GPUPrefrence);
 
     void SetCustomWindowText(LPCWSTR text);
 

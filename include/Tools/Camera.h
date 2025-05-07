@@ -27,7 +27,7 @@ public:
 	void OnUpdate(XMMATRIX& v, XMMATRIX& p);
 	void OnZoom(short delta);
 	void OnMouseMove(int xPos, int yPos, bool updatePos);
-	void OnResize();
+	void OnResize(UINT width, UINT height);
 
 	UINT mWidth, mHeight;
 	float mAspectRatio = 0.0f;

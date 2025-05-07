@@ -11,9 +11,10 @@ void Camera::OnUpdate(XMMATRIX& v, XMMATRIX& p)
 	v = XMMatrixLookAtLH(position, target, up);
 	p = XMLoadFloat4x4(&mProj);
 }
-void Camera::OnResize()
+void Camera::OnResize(UINT width, UINT height)
 {
 	//When resized, compute projection matrix
+	mAspectRatio = static_cast<float>(width) / static_cast<float>(height);
 	XMStoreFloat4x4(&mProj, XMMatrixPerspectiveFovLH(mFOV, mAspectRatio, nearZ, farZ));
 }
 void Camera::OnZoom(short delta)
