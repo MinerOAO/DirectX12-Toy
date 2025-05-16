@@ -8,6 +8,7 @@ cbuffer cbMaterial : register(b1)
     float4x4 matTransform;
     float refraction;
     float roughness;
+	int hasTexture;
 }
 cbuffer cbPassObject : register(b2)
 {
@@ -84,14 +85,7 @@ float4 PS(float4 posH : SV_POSITION, float4 posW : POSITION, float3 normalW : NO
     normalW = normalize(normalW);
     float3 toEyeW = normalize(eyePosWorld - posW);
     
-    float4 ka = ambientAlbedo, kd = 0.0f, ks = specularAlbedo;
-    if (length(diffuseAlbedo) != 0.0f)
-        kd = diffuseAlbedo;
-    else
-        kd = diffuseMap.Sample(defaultSampler, texCoord);
-    
-    ks *= kd;
-    ka *= kd;
+    float4 ka = ambientAlbedo, kd = diffuseAlbedo, ks = specularAlbedo;
     
     //direct lighting
     Material mat = { kd, ks, roughness };
@@ -102,6 +96,8 @@ float4 PS(float4 posH : SV_POSITION, float4 posW : POSITION, float3 normalW : NO
     
     //tone mapping to [0,1].
     float4 result = ambient + diffuseSpec;
+    if (hasTexture)
+        result *= diffuseMap.Sample(defaultSampler, texCoord);
     //result = result / (result + 1.0f);
     return result;
 }

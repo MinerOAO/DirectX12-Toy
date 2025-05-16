@@ -82,6 +82,8 @@ private:
 		DirectX::XMFLOAT4X4 matTransform;
 		float refraction;
 		float roughness;
+
+		int hasTexture = 1;
 	};
 	const UINT matCBByteSize = CalcConstBufferByteSizes(sizeof(MaterialConstants));
 	struct LightConstants

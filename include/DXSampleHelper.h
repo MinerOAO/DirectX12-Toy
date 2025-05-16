@@ -12,6 +12,7 @@
 #pragma once
 #include <stdexcept>
 #include <unordered_map>
+#include <unordered_set>
 // Note that while ComPtr is used to manage the lifetime of resources on the CPU,
 // it has no understanding of the lifetime of resources on the GPU. Apps must account
 // for the GPU lifetime of resources to avoid destroying objects that may still be
@@ -142,15 +143,19 @@ inline void ThrowIfFailed(HRESULT hr) // HRESULT -> subname for long type
     }
 }
 
-static std::vector<std::string> SplitString(std::string& s, char separator)
+static std::vector<std::string> SplitString(std::string& s, std::unordered_set<char>& separators)
 {
     std::vector<std::string> subStrings;
-    int i = 0;
-    for (int j = 0; j < s.size(); ++j)
+
+	int i = 0, j = 0;
+    for (; j < s.size(); ++j)
     {
-        if (s[j] == separator)
+        if (separators.find(s[j]) != separators.end())
         {
-            subStrings.push_back(s.substr(i, j - i));//start index, length
+			if (i < j)
+			{
+				subStrings.push_back(s.substr(i, j - i));//start index, length
+			}
             ++j;
             i = j;
         }
@@ -160,4 +165,11 @@ static std::vector<std::string> SplitString(std::string& s, char separator)
         subStrings.push_back(s.substr(i, s.size() - i));
     }
     return subStrings;
+}
+
+static std::vector<std::string> SplitString(std::string& s, char separator)
+{
+	std::unordered_set<char> separators;
+	separators.insert(separator);
+	return SplitString(s, separators);
 }

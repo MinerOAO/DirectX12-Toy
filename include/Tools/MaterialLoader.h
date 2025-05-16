@@ -84,6 +84,8 @@ public:
 		cmdList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(res.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE));
 	}
 	void ReadMtlFile(std::string path, std::string fileName, std::vector<Material>& mtlList);
+private:
+	std::unordered_set<char> mtlSeparators = { ' ', '\t', '\n', '\r' };
 };
 
 

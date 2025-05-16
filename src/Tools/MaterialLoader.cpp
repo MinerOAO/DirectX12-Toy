@@ -33,7 +33,7 @@ void MaterialLoader::ReadMtlFile(std::string path, std::string fileName, std::ve
 
     while (std::getline(mtlFile, line))
     {
-        std::vector<std::string> lineParts = SplitString(line, ' ');
+        std::vector<std::string> lineParts = SplitString(line, mtlSeparators);
         if (!lineParts.empty()) {
             if (parsers.find(lineParts[0]) != parsers.end())
             {

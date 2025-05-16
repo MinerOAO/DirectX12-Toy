@@ -281,8 +281,8 @@ void D3DToy::CreateSwapChain()
 	bufDesc.Width = mWidth;
 	bufDesc.Height = mHeight;
 	bufDesc.Format = mBackBufferFormat;
-	bufDesc.RefreshRate.Numerator = 360;
-	bufDesc.RefreshRate.Denominator = 1; // Refreshrate = Numerator / Denominator
+	//bufDesc.RefreshRate.Numerator = 360;
+	//bufDesc.RefreshRate.Denominator = 1; // Refreshrate = Numerator / Denominator
 	bufDesc.Scaling = DXGI_MODE_SCALING_UNSPECIFIED; //Center, Stretch 
 	bufDesc.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
 
@@ -381,6 +381,8 @@ void D3DToy::CreateCBVAndSRVDescHeap()
 	{
 		mFrameResources.push_back(std::make_unique<FrameResource>(mDevice.Get(), 1, mRenderItems.size(), mMaterialItems.size()));
 	}
+	//Constant Buffer Figure
+	//ObjDataFrame11 бн ObjDataFrame3n | MaterialDataFrame 11 бн MaterialDataFrame 3n | ShaderResourceFrame11 бн ShaderResourceFrame3n
 	UINT objCount = (UINT)mRenderItems.size();//Changes from mOpaque to mRenderItems
 	UINT materialCount = (UINT)mMaterialItems.size();
 	mMaterialCbvOffset = objCount * numFrameResources;
@@ -549,7 +551,7 @@ void D3DToy::BuildGeoAndMat()
 
 	std::vector<GeometryGenerator::MeshData> objMeshes;
 	std::vector<MaterialLoader::Material> mtlList;
-	geoGen.ReadObjFile("assets\\models\\Homework", "Ai.obj", objMeshes, mtlList);
+	geoGen.ReadObjFile("assets\\models\\Homework\\Ai", "Ai.obj", objMeshes, mtlList);
 
 	std::vector<Vertex> vertices;
 	std::vector<uint32_t> indices;
@@ -609,7 +611,16 @@ void D3DToy::BuildGeoAndMat()
 		material->matConsts.specularAlbedo = XMFLOAT4(m.ks.x, m.ks.y, m.ks.z, 0.0f);
 		material->matConsts.refraction = m.ni;
 		material->matConsts.roughness = 1000.0f - min(1000.0f, m.ns); //transform to roughness.
+		material->matConsts.hasTexture = 1;
 
+		if (XMVector4Equal(XMLoadFloat4(&material->matConsts.ambientAlbedo), XMVectorZero()))
+		{
+			material->matConsts.ambientAlbedo = material->matConsts.diffuseAlbedo;
+		}
+		if (XMVector4Equal(XMLoadFloat4(&material->matConsts.diffuseAlbedo), XMVectorZero()))
+		{
+			material->matConsts.diffuseAlbedo = material->matConsts.ambientAlbedo;
+		}
 		//material->diffuseSRVHeapIndex
 		if (mTextures.find(material->texPath) == mTextures.end())
 		{
@@ -626,6 +637,7 @@ void D3DToy::BuildGeoAndMat()
 	defaultMtl->matConsts.specularAlbedo = XMFLOAT4(1.0f, 1.0f, 1.0f, 0.0f);
 	defaultMtl->matConsts.refraction = 1.0f;
 	defaultMtl->matConsts.roughness = 1.0f; 
+	defaultMtl->matConsts.hasTexture = 0;
 	mMaterialItems.emplace("default", std::move(defaultMtl));
 }
 void D3DToy::SetLights()
