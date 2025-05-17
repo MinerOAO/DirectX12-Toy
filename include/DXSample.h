@@ -61,4 +61,5 @@ private:
 
     // Window title.
     std::wstring m_title;
+    std::wstring m_notification = L"Scaling:Up&Down Arrow, Wireframe mode: Key S";
 };

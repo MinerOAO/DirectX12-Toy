@@ -751,7 +751,7 @@ void D3DToy::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vect
 }
 void D3DToy::ProcessObjEvent()
 {
-	//std::lock_guard<std::mutex> lock(mEventQueueMutex);
+	std::lock_guard<std::mutex> lock(mEventQueueMutex);
 	while (!mObjEventQueue.empty())
 	{
 		ObjEvent e = mObjEventQueue.front();
