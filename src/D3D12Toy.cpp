@@ -41,6 +41,26 @@ void D3DToy::OnKeyDown(UINT8 key)
 		else
 			mCurrentInitialPSO = mPSOMap["triangle"];
 		break;
+	case VK_UP:
+	{
+		ObjEvent event;
+		event.renderItem = mSpecialRenderItem;
+		event.trans = XMMatrixIdentity();
+		event.rotation = XMMatrixIdentity();
+		event.scaling = XMMatrixScaling(2.0f, 2.0f, 2.0f);	
+		mObjEventQueue.push(event);
+		break;
+	}
+	case VK_DOWN:
+	{
+		ObjEvent event;
+		event.renderItem = mSpecialRenderItem;
+		event.trans = XMMatrixIdentity();
+		event.rotation = XMMatrixIdentity();
+		event.scaling = XMMatrixScaling(0.5f, 0.5f, 0.5f);
+		mObjEventQueue.push(event);
+		break;
+	}
 	default:
 		break;
 	}
@@ -129,23 +149,22 @@ void D3DToy::OnUpdate()
 			//Transpose->Row-major->column-major
 			ObjectConstants objConst;
 			XMMATRIX world = XMLoadFloat4x4(&e->world);
+
 			XMStoreFloat4x4(&objConst.world, XMMatrixTranspose(world));
 			mCurrentFrameRes->objCB->CopyData(e->objCBIndex, objConst);
 			--e->numFramesDirty;
 		}
-		if (e->objCBIndex == 0) //update box
+		if (e->id == "box")
 		{
-			ObjectConstants objConst;
-			XMMATRIX world = XMMatrixIdentity();
-			XMMATRIX rotation = XMMatrixRotationY(mTimer.CurrentTime());
-			XMMATRIX trans = XMMatrixTranslation(210 * cos(2 * mTimer.CurrentTime()), 100.0f, 210 * sin(2 * mTimer.CurrentTime()));
-			world = XMMatrixMultiply(trans, world);
-			world = XMMatrixMultiply(rotation, world);
-			XMStoreFloat4x4(&objConst.world, XMMatrixTranspose(world));
-			mCurrentFrameRes->objCB->CopyData(e->objCBIndex, objConst);
-			e->numFramesDirty = numFrameResources - 1;
+			ObjEvent event;
+			event.renderItem = e.get();
+			event.trans = XMMatrixTranslation(210 * cos(2 * mTimer.CurrentTime()), 100.0f, 210 * sin(2 * mTimer.CurrentTime()));
+			event.rotation = XMMatrixRotationY(mTimer.CurrentTime());
+			event.scaling = XMMatrixIdentity();
+			mObjEventQueue.push(event);
 		}
 	}
+	ProcessObjEvent();
 //Update material constants
 	for (auto& e : mMaterialItems)
 	{
@@ -551,7 +570,7 @@ void D3DToy::BuildGeoAndMat()
 
 	std::vector<GeometryGenerator::MeshData> objMeshes;
 	std::vector<MaterialLoader::Material> mtlList;
-	geoGen.ReadObjFile("assets\\models\\Homework\\Ai", "Ai.obj", objMeshes, mtlList);
+	geoGen.ReadObjFile("assets\\models\\Homework\\Test", "Amber.obj", objMeshes, mtlList);
 
 	std::vector<Vertex> vertices;
 	std::vector<uint32_t> indices;
@@ -566,6 +585,9 @@ void D3DToy::BuildGeoAndMat()
 		//Same objConstant buffer for now
 		BuildSingleGeometry(mRenderItems, mesh, mGeometries.get(), vertices, vertexOffset, indices, indexOffset, 1, D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	}
+	//Dirty ways
+	mSpecialRenderItem = mRenderItems.back().get();
+
 	for (auto& e : mRenderItems)
 	{
 		mOpaqueRenderItems.push_back(e.get());
@@ -727,6 +749,31 @@ void D3DToy::DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vect
 			ri->startIndexLocation, ri->baseVertexLocation, 0);//VB IB
 	}
 }
+void D3DToy::ProcessObjEvent()
+{
+	//std::lock_guard<std::mutex> lock(mEventQueueMutex);
+	while (!mObjEventQueue.empty())
+	{
+		ObjEvent e = mObjEventQueue.front();
+		mObjEventQueue.pop();
+
+		ObjectConstants objConst;
+		XMMATRIX world = XMMatrixIdentity();
+
+		world = XMMatrixMultiply(e.trans, world);
+		world = XMMatrixMultiply(e.rotation, world);
+
+		XMMATRIX scaling = XMMatrixMultiply(e.scaling, XMLoadFloat4x4(&e.renderItem->scaling));
+		XMStoreFloat4x4(&e.renderItem->scaling, XMMatrixTranspose(scaling));
+
+		world = XMMatrixMultiply(scaling, world);
+
+		XMStoreFloat4x4(&e.renderItem->world, XMMatrixTranspose(world));
+		XMStoreFloat4x4(&objConst.world, XMMatrixTranspose(world));
+		mCurrentFrameRes->objCB->CopyData(e.renderItem->objCBIndex, objConst);
+		e.renderItem->numFramesDirty = numFrameResources - 1;
+	}
+}
 void D3DToy::CheckFeatureSupport()
 {
 	//CD3DX12FeatureSupport::MultisampleQualityLevels
@@ -819,6 +866,7 @@ void D3DToy::BuildSingleGeometry(std::vector<std::unique_ptr<RenderItem>>& riLis
 		renderItem->startIndexLocation = renderItem->geo->drawArgs[subMeshName].startIndexLocation;
 		renderItem->baseVertexLocation = renderItem->geo->drawArgs[subMeshName].baseVertexLocation;
 		renderItem->materialName = e.mtlName;
+		renderItem->id = meshData.name;
 
 		riList.push_back(std::move(renderItem));
 

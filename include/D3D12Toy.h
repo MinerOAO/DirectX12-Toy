@@ -6,6 +6,8 @@
 #include "CompiledShaders/DefaultVertexShader.inc"
 #include "CompiledShaders/DefaultPixelShader.inc"
 #include "CompiledShaders/GridPixelShader.inc"
+#include <queue>
+#include <mutex>
 
 constexpr auto MAX_DIRECT_LIGHT_SOURCE_NUM = 8;
 constexpr auto MAX_POINT_LIGHT_SOURCE_NUM = 8;
@@ -135,11 +137,14 @@ private:
 		RenderItem()
 		{
 			XMStoreFloat4x4(&world, XMMatrixIdentity());
+			XMStoreFloat4x4(&scaling, XMMatrixIdentity());
 		}
+		std::string id; //not unique
 		// World matrix of the shape that describes the object¡¯s local space
 		// relative to the world space, which defines the position, 
 		// orientation, and scale of the object in the world.
 		XMFLOAT4X4 world;
+		XMFLOAT4X4 scaling;
 		// Dirty flag indicating the object data has changed and we need 
 		// to update the constant buffer. Because we have an object 
 		// cbuffer for each FrameResource, we have to apply the
@@ -176,6 +181,16 @@ private:
 		//Material Data
 		MaterialConstants matConsts;
 	};
+	struct ObjEvent
+	{
+		RenderItem* renderItem;
+		XMMATRIX trans;
+		XMMATRIX rotation;
+		XMMATRIX scaling;
+	};
+	std::queue<ObjEvent> mObjEventQueue;
+	std::mutex mEventQueueMutex; 
+
 	ComPtr<IDXGIFactory4> mFactory; //Using DXGIFactory4 for WARP
 	ComPtr<IDXGIAdapter> mAdapter; //GPU adapter
 	ComPtr<ID3D12Device> mDevice; //GPU
@@ -201,6 +216,7 @@ private:
 	std::unique_ptr<MeshGeometry> mGeometries;
 	std::unordered_map<std::string, std::unique_ptr<MaterialItem>> mMaterialItems;
 
+	RenderItem* mSpecialRenderItem = nullptr;
 	std::vector<std::unique_ptr<RenderItem>> mRenderItems = {}; //All render items
 	std::vector<RenderItem*> mOpaqueRenderItems; //Divided by different PSO
 	std::vector<RenderItem*> mTransparentRenderItems;
@@ -248,6 +264,8 @@ private:
 	void CreatePipelineStateObject(); 
 
 	void DrawRenderItems(ID3D12GraphicsCommandList* cmdList, const std::vector<RenderItem*>& ritems);
+
+	void ProcessObjEvent();
 
 	void FlushCommandQueue();
 
